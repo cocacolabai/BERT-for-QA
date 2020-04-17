@@ -244,7 +244,10 @@ def read_squad_examples(input_file, is_training):
     return False
 
   examples = []
+    
+  ids = [] ###
   for entry in input_data:
+    ids.append(entry["id"]) ###
     for paragraph in entry["paragraphs"]:
       paragraph_text = paragraph["context"]
       doc_tokens = []
@@ -311,7 +314,8 @@ def read_squad_examples(input_file, is_training):
             end_position=end_position,
             answerable=answerable)
         examples.append(example)
-
+    
+    print(ids) ###
   return examples
 
 
@@ -440,19 +444,19 @@ def convert_examples_to_features(examples, tokenizer, max_seq_length,
         tf.compat.v1.logging.info("*** Example ***")
         tf.compat.v1.logging.info("unique_id: %s" % (unique_id))
         tf.compat.v1.logging.info("example_index: %s" % (example_index))
-        tf.compat.v1.logging.info("doc_span_index: %s" % (doc_span_index))
-        tf.compat.v1.logging.info("tokens: %s" % " ".join(
-            [tokenization.printable_text(x) for x in tokens]))
-        tf.compat.v1.logging.info("token_to_orig_map: %s" % " ".join(
-            ["%d:%d" % (x, y) for (x, y) in six.iteritems(token_to_orig_map)]))
-        tf.compat.v1.logging.info("token_is_max_context: %s" % " ".join([
-            "%d:%s" % (x, y) for (x, y) in six.iteritems(token_is_max_context)
-        ]))
-        tf.compat.v1.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
-        tf.compat.v1.logging.info(
-            "input_mask: %s" % " ".join([str(x) for x in input_mask]))
-        tf.compat.v1.logging.info(
-            "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
+#         tf.compat.v1.logging.info("doc_span_index: %s" % (doc_span_index))
+#         tf.compat.v1.logging.info("tokens: %s" % " ".join(
+#             [tokenization.printable_text(x) for x in tokens]))
+#         tf.compat.v1.logging.info("token_to_orig_map: %s" % " ".join(
+#             ["%d:%d" % (x, y) for (x, y) in six.iteritems(token_to_orig_map)]))
+#         tf.compat.v1.logging.info("token_is_max_context: %s" % " ".join([
+#             "%d:%s" % (x, y) for (x, y) in six.iteritems(token_is_max_context)
+#         ]))
+#         tf.compat.v1.logging.info("input_ids: %s" % " ".join([str(x) for x in input_ids]))
+#         tf.compat.v1.logging.info(
+#             "input_mask: %s" % " ".join([str(x) for x in input_mask]))
+#         tf.compat.v1.logging.info(
+#             "segment_ids: %s" % " ".join([str(x) for x in segment_ids]))
         if is_training and not example.answerable:
           tf.compat.v1.logging.info("impossible example")
         if is_training and example.answerable:
@@ -697,15 +701,15 @@ def input_fn_builder(input_file, seq_length, is_training, drop_remainder):
   """Creates an `input_fn` closure to be passed to TPUEstimator."""
 
   name_to_features = {
-      "unique_ids": tf.FixedLenFeature([], tf.int64),
-      "input_ids": tf.FixedLenFeature([seq_length], tf.int64),
-      "input_mask": tf.FixedLenFeature([seq_length], tf.int64),
-      "segment_ids": tf.FixedLenFeature([seq_length], tf.int64),
+      "unique_ids": tf.io.FixedLenFeature([], tf.int64),
+      "input_ids": tf.io.FixedLenFeature([seq_length], tf.int64),
+      "input_mask": tf.io.FixedLenFeature([seq_length], tf.int64),
+      "segment_ids": tf.io.FixedLenFeature([seq_length], tf.int64),
   }
 
   if is_training:
-    name_to_features["start_positions"] = tf.FixedLenFeature([], tf.int64)
-    name_to_features["end_positions"] = tf.FixedLenFeature([], tf.int64)
+    name_to_features["start_positions"] = tf.io.FixedLenFeature([], tf.int64)
+    name_to_features["end_positions"] = tf.io.FixedLenFeature([], tf.int64)
 
   def _decode_record(record, name_to_features):
     """Decodes a record to a TensorFlow example."""
