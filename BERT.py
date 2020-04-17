@@ -976,7 +976,8 @@ def get_final_text(pred_text, orig_text, do_lower_case):
   # and `pred_text`, and check if they are the same length. If they are
   # NOT the same length, the heuristic has failed. If they are the same
   # length, we assume the characters are one-to-one aligned.
-  tokenizer = tokenization.BasicTokenizer(do_lower_case=do_lower_case)
+  tokenizer = tokenization.FullTokenizer(
+      vocab_file=FLAGS.vocab_file, do_lower_case=FLAGS.do_lower_case)
 
   tok_text = " ".join(tokenizer.tokenize(orig_text))
 
