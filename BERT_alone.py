@@ -273,28 +273,101 @@ def read_squad_examples(input_file, is_training):
 
   examples = []
     
+#   for entry in input_data:
+#     for paragraph in entry["paragraphs"]:
+#       paragraph_text = paragraph["context"]
+
+#       char_to_word_offset = []
+
+#       doc_tokens = tokenizer.tokenize(paragraph_text)
+    
+#       tokenIdx = 0
+#       for token in doc_tokens:
+#         tmp = token.replace(" ##", "")
+#         tmp = tmp.replace("##", "")
+#         tmp = tmp.replace("[UNK]", " ")
+#         l = len(tmp)
+#         for i in range(l):
+#             char_to_word_offset.append(tokenIdx)
+#         tokenIdx+=1
+      
+# #       print(doc_tokens)
+# #       print("=============================")
+# #       print(paragraph_text)
+# #       print(char_to_word_offset)
+#       for qa in paragraph["qas"]:
+#         qas_id = qa["id"]
+#         question_text = qa["question"]
+#         start_position = None
+#         end_position = None
+#         orig_answer_text = None
+#         answerable = True
+#         if is_training:
+
+#           if  version_2_with_negative:
+#             answerable = qa["answerable"]
+#           if (len(qa["answers"]) != 1) and answerable:
+#             raise ValueError(
+#                 "For training, each question should have exactly 1 answer.")
+#           if answerable:
+#             answer = qa["answers"][0]
+#             orig_answer_text = answer["text"]
+#             answer_offset = answer["answer_start"]
+#             if len(char_to_word_offset) <= answer_offset:
+#                 print("answer_offset:",answer_offset,len(char_to_word_offset),orig_answer_text)
+#                 print(doc_tokens)
+#                 print(char_to_word_offset)
+#                 print(paragraph_text)
+
+#             answer_length = len(orig_answer_text)
+#             start_position = char_to_word_offset[answer_offset]
+#             end_position = char_to_word_offset[answer_offset + answer_length - 1]
+
+            
+#             # Only add answers where the text can be exactly recovered from the
+#             # document. If this CAN'T happen it's likely due to weird Unicode
+#             # stuff so we will just skip the example.
+#             #
+#             # Note that this means for training mode, every example is NOT
+#             # guaranteed to be preserved.
+#             actual_text = "".join(doc_tokens[start_position:(end_position + 1)])
+# #             cleaned_answer_text = " ".join(whitespace_tokenize(orig_answer_text))
+
+#             if actual_text.find(orig_answer_text) == -1:
+#               tf.compat.v1.logging.warning("Could not find answer: '%s' vs. '%s'",
+#                                  actual_text, orig_answer_text)
+#               continue
+#           else:
+#             start_position = -1
+#             end_position = -1
+#             orig_answer_text = ""
+
+#         example = SquadExample(
+#             qas_id=qas_id,
+#             question_text=question_text,
+#             doc_tokens=doc_tokens,
+#             orig_answer_text=orig_answer_text,
+#             start_position=start_position,
+#             end_position=end_position,
+#             answerable=answerable)
+#         examples.append(example)
   for entry in input_data:
     for paragraph in entry["paragraphs"]:
       paragraph_text = paragraph["context"]
-
+      doc_tokens = []
       char_to_word_offset = []
+      prev_is_whitespace = True
+      for c in paragraph_text:
+        if is_whitespace(c):
+          prev_is_whitespace = True
+        else:
+          if prev_is_whitespace:
+            doc_tokens.append(c)
+          else:
+            doc_tokens[-1] += c
+          prev_is_whitespace = False
+        char_to_word_offset.append(len(doc_tokens) - 1)
 
-      doc_tokens = tokenizer.tokenize(paragraph_text)
-    
-      tokenIdx = 0
-      for token in doc_tokens:
-        tmp = token.replace(" ##", "")
-        tmp = tmp.replace("##", "")
-        tmp = tmp.replace("[UNK]", " ")
-        l = len(tmp)
-        for i in range(l):
-            char_to_word_offset.append(tokenIdx)
-        tokenIdx+=1
-      
-#       print(doc_tokens)
-#       print("=============================")
-#       print(paragraph_text)
-#       print(char_to_word_offset)
       for qa in paragraph["qas"]:
         qas_id = qa["id"]
         question_text = qa["question"]
@@ -304,7 +377,7 @@ def read_squad_examples(input_file, is_training):
         answerable = True
         if is_training:
 
-          if  version_2_with_negative:
+          if version_2_with_negative:
             answerable = qa["answerable"]
           if (len(qa["answers"]) != 1) and answerable:
             raise ValueError(
@@ -315,22 +388,21 @@ def read_squad_examples(input_file, is_training):
             answer_offset = answer["answer_start"]
             answer_length = len(orig_answer_text)
             start_position = char_to_word_offset[answer_offset]
-            end_position = char_to_word_offset[answer_offset + answer_length - 1]
-
-            
+            end_position = char_to_word_offset[answer_offset + answer_length -
+                                               1]
             # Only add answers where the text can be exactly recovered from the
             # document. If this CAN'T happen it's likely due to weird Unicode
             # stuff so we will just skip the example.
             #
             # Note that this means for training mode, every example is NOT
             # guaranteed to be preserved.
-            actual_text = "".join(
+            actual_text = " ".join(
                 doc_tokens[start_position:(end_position + 1)])
-#             cleaned_answer_text = " ".join(whitespace_tokenize(orig_answer_text))
-
-            if actual_text.find(orig_answer_text) == -1:
+            cleaned_answer_text = " ".join(
+                whitespace_tokenize(orig_answer_text))
+            if actual_text.find(cleaned_answer_text) == -1:
               tf.compat.v1.logging.warning("Could not find answer: '%s' vs. '%s'",
-                                 actual_text, orig_answer_text)
+                                 actual_text, cleaned_answer_text)
               continue
           else:
             start_position = -1
