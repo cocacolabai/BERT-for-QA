@@ -627,7 +627,7 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
         segment_ids=segment_ids,
         use_one_hot_embeddings=use_one_hot_embeddings)
 
-    tvars = tf.trainable_variables()
+    tvars = tf.compat.v1.trainable_variables()
 
     initialized_variable_names = {}
     scaffold_fn = None
@@ -637,12 +637,12 @@ def model_fn_builder(bert_config, init_checkpoint, learning_rate,
       if use_tpu:
 
         def tpu_scaffold():
-          tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
-          return tf.train.Scaffold()
+          tf.compat.v1.train.init_from_checkpoint(init_checkpoint, assignment_map)
+          return tf.compat.v1.train.Scaffold()
 
         scaffold_fn = tpu_scaffold
       else:
-        tf.train.init_from_checkpoint(init_checkpoint, assignment_map)
+        tf.compat.v1.train.init_from_checkpoint(init_checkpoint, assignment_map)
 
     tf.compat.v1.logging.info("**** Trainable Variables ****")
     for var in tvars:
@@ -713,14 +713,14 @@ def input_fn_builder(input_file, seq_length, is_training, drop_remainder):
 
   def _decode_record(record, name_to_features):
     """Decodes a record to a TensorFlow example."""
-    example = tf.parse_single_example(record, name_to_features)
+    example = tf.io.parse_single_example(record, name_to_features)
 
     # tf.Example only supports tf.int64, but the TPU only supports tf.int32.
     # So cast all int64 to int32.
     for name in list(example.keys()):
       t = example[name]
       if t.dtype == tf.int64:
-        t = tf.to_int32(t)
+        t = tf.compat.v1.to_int32(t)
       example[name] = t
 
     return example
@@ -737,7 +737,7 @@ def input_fn_builder(input_file, seq_length, is_training, drop_remainder):
       d = d.shuffle(buffer_size=100)
 
     d = d.apply(
-        tf.contrib.data.map_and_batch(
+        tf.data.experimental.map_and_batch(
             lambda record: _decode_record(record, name_to_features),
             batch_size=batch_size,
             drop_remainder=drop_remainder))
@@ -1079,12 +1079,12 @@ class FeatureWriter(object):
     self._writer = tf.compat.v1.python_io.TFRecordWriter(filename)
 
   def process_feature(self, feature):
-    """Write a InputFeature to the TFRecordWriter as a tf.train.Example."""
+    """Write a InputFeature to the TFRecordWriter as a tf.compat.v1.train.Example."""
     self.num_features += 1
 
     def create_int_feature(values):
-      feature = tf.train.Feature(
-          int64_list=tf.train.Int64List(value=list(values)))
+      feature = tf.compat.v1.train.Feature(
+          int64_list=tf.compat.v1.train.Int64List(value=list(values)))
       return feature
 
     features = collections.OrderedDict()
@@ -1101,7 +1101,7 @@ class FeatureWriter(object):
         impossible = 0
       features["answerable"] = create_int_feature([impossible])
 
-    tf_example = tf.train.Example(features=tf.train.Features(feature=features))
+    tf_example = tf.compat.v1.train.Example(features=tf.compat.v1.train.Features(feature=features))
     self._writer.write(tf_example.SerializeToString())
 
   def close(self):
@@ -1150,7 +1150,7 @@ def main(_):
 
   tpu_cluster_resolver = None
   if FLAGS.use_tpu and FLAGS.tpu_name:
-    tpu_cluster_resolver = tf.contrib.cluster_resolver.TPUClusterResolver(
+    tpu_cluster_resolver = tf.cluster_resolver.TPUClusterResolver(
         FLAGS.tpu_name, zone=FLAGS.tpu_zone, project=FLAGS.gcp_project)
 
   is_per_host = tf.compat.v1.estimator.tpu.InputPipelineConfig.PER_HOST_V2
