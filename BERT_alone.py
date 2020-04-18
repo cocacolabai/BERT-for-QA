@@ -7,11 +7,15 @@ import random
 import optimization
 import six
 import tensorflow as tf
+import torch
+
+# setting device    
+device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+print("using device",device)
 
 PRETRAINED_MODEL_NAME = "bert-base-chinese"  # 指定繁簡中文 BERT-BASE 預訓練模型
-model = BertModel.from_pretrained(PRETRAINED_MODEL_NAME, output_attentions=True)
+model = BertModel.from_pretrained(PRETRAINED_MODEL_NAME, output_attentions=True).to(device)
 tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
-
 
 def main(_):
   tf.compat.v1.logging.set_verbosity(tf.compat.v1.logging.INFO)
