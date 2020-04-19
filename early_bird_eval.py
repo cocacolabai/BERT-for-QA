@@ -1,5 +1,6 @@
 import json
 import torch
+from pathlib import Path
 from torch.utils.data import DataLoader, Dataset
 from transformers import *
 from tqdm.auto import trange, tqdm
@@ -86,6 +87,6 @@ for epoch in trange(max_epoch):
 
     epoch_mins, epoch_secs = epoch_time(start_time, end_time)
 
-    if loss < best_valid_loss:
-        best_valid_loss = loss
-        torch.save(model.state_dict(), '../early_model.pt')
+
+output_file=Path(args.output_path)
+output_file.write_text(json.dumps(all_predictions))

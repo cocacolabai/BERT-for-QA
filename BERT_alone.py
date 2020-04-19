@@ -1,21 +1,22 @@
-from transformers import BertTokenizer, BertModel, BertForQuestionAnswering
-import collections
 import json
-import math
-import os
-import random
-import optimization
-import six
-import tensorflow as tf
 import torch
+from torch.utils.data import DataLoader, Dataset
+from transformers import *
+from tqdm.auto import trange, tqdm
+import time
 
-# setting device    
-device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-print("using device",device)
+max_epoch = 3
+batch_size = 4
+lr = 1e-4
+weight_decay = 0
 
-PRETRAINED_MODEL_NAME = "bert-base-chinese"  # 指定繁簡中文 BERT-BASE 預訓練模型
-model = BertForQuestionAnswering.from_pretrained(PRETRAINED_MODEL_NAME, output_attentions=True).to(device)
-tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
+bert_pretrain_name = 'bert-base-chinese'
+tokenizer = BertTokenizer.from_pretrained(bert_pretrain_name)
+model = BertForQuestionAnswering.from_pretrained(bert_pretrain_name).to(device)
+optim = AdamW(model.parameters(), lr)
+
 
 def main(_):
     bert_config = model.config
@@ -37,6 +38,17 @@ def main(_):
         start_time = time.time()
         pbar= tqdm(train_loader)
         for batch in pbar:
+            model.train()
+            
+#             qas_id=qas_id,
+#             question_text=question_text,
+#             doc_tokens=doc_tokens,
+#             orig_answer_text=orig_answer_text,
+#             start_position=start_position,
+#             end_position=end_position,
+#             answerable=answerable
+            
+            
             ids, contexts, questions, answerable = batch
             input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                      max_length=tokenizer.max_len, 
@@ -45,6 +57,17 @@ def main(_):
             input_dict = {k: v.to(device) for k, v in input_dict.items()}
             loss, logits = model(next_sentence_label=answerable.to(device), 
                                  **input_dict)
+            
+            
+#             question, text = "Who was Jim Henson?", "Jim Henson was a nice puppet"
+#             encoding = tokenizer.encode_plus(question, text)
+#             input_ids, token_type_ids = encoding["input_ids"], encoding["token_type_ids"]
+#             start_scores, end_scores = model(torch.tensor([input_ids]), token_type_ids=torch.tensor([token_type_ids]))
+
+#             all_tokens = tokenizer.convert_ids_to_tokens(input_ids)
+#             answer = ' '.join(all_tokens[torch.argmax(start_scores) : torch.argmax(end_scores)+1])
+            
+            
             loss.backward()
             optim.step()
             optim.zero_grad()
