@@ -3,9 +3,10 @@ import torch
 from torch.utils.data import DataLoader, Dataset
 from transformers import *
 from tqdm.auto import trange, tqdm
+import time
 
 max_epoch = 3
-batch_size = 2
+batch_size = 4
 lr = 1e-4
 weight_decay = 0
 
@@ -38,8 +39,14 @@ class EarlyDataset(Dataset):
     qa_id, context, question, answerable = self.data[index]
     return qa_id, context, question, int(answerable)
     
-train_dataset = EarlyDataset("./data/train.json", tokenizer)
-valid_dataset = EarlyDataset("./data/dev.json", tokenizer)
+def epoch_time(start_time, end_time):
+    elapsed_time = end_time - start_time
+    elapsed_mins = int(elapsed_time / 60)
+    elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
+    return elapsed_mins, elapsed_secs
+    
+train_dataset = EarlyDataset("./data/dev.json", tokenizer)
+valid_dataset = EarlyDataset("./data/dev-small.json", tokenizer)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
@@ -70,10 +77,10 @@ for epoch in trange(max_epoch):
                                              pad_to_max_length=True,
                                              return_tensors='pt')
     input_dict = {k: v.to(device) for k, v in input_dict.items()}
-    loss, logits = model(next_sentence_label=answerable.to(device), 
+    valid_loss, logits = model(next_sentence_label=answerable.to(device), 
                          **input_dict)
     
-    pbar.set_description(f"val loss: {loss.item():.4f}")
+    pbar.set_description(f"val loss: {valid_loss.item():.4f}")
     
     end_time = time.time()
 
