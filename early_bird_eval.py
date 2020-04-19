@@ -76,7 +76,7 @@ for epoch in trange(max_epoch):
         loss, logits = model(next_sentence_label=answerable.to(device), 
                              **input_dict)
         all_predictions = {}
-        for i,id in zip(a[0]>0, ids):
+        for i,id in zip(logits[0]>0, ids):
             if i:
                 all_predictions[id] = "have answer"
             else:
