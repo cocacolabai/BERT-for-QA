@@ -6,7 +6,7 @@ from tqdm.auto import trange, tqdm
 import time
 
 max_epoch = 3
-batch_size = 4
+batch_size = 2
 lr = 1e-4
 weight_decay = 0
 
@@ -69,23 +69,24 @@ for epoch in trange(max_epoch):
     optim.zero_grad()
     pbar.set_description(f"train loss: {loss.item():.4f}")
   
-  pbar=tqdm(valid_loader)
-  for batch in pbar:
-    ids, contexts, questions, answerable = batch
-    input_dict = tokenizer.batch_encode_plus(contexts, questions, 
-                                             max_length=tokenizer.max_len, 
-                                             pad_to_max_length=True,
-                                             return_tensors='pt')
-    input_dict = {k: v.to(device) for k, v in input_dict.items()}
-    valid_loss, logits = model(next_sentence_label=answerable.to(device), 
-                         **input_dict)
-    
-    pbar.set_description(f"val loss: {valid_loss.item():.4f}")
+  with torch.no_grad():
+      pbar=tqdm(valid_loader)
+      for batch in pbar:
+        ids, contexts, questions, answerable = batch
+        input_dict = tokenizer.batch_encode_plus(contexts, questions, 
+                                                 max_length=tokenizer.max_len, 
+                                                 pad_to_max_length=True,
+                                                 return_tensors='pt')
+        input_dict = {k: v.to(device) for k, v in input_dict.items()}
+        loss, logits = model(next_sentence_label=answerable.to(device), 
+                             **input_dict)
+
+        pbar.set_description(f"val loss: {loss.item():.4f}")
     
     end_time = time.time()
 
     epoch_mins, epoch_secs = epoch_time(start_time, end_time)
 
-    if valid_loss < best_valid_loss:
-        best_valid_loss = valid_loss
+    if loss < best_valid_loss:
+        best_valid_loss = loss
         torch.save(model.state_dict(), './early_model.pt')
