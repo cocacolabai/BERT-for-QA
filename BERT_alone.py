@@ -66,6 +66,7 @@ def main(_):
 
 #             all_tokens = tokenizer.convert_ids_to_tokens(input_ids)
 #             answer = ' '.join(all_tokens[torch.argmax(start_scores) : torch.argmax(end_scores)+1])
+#             assert answer == "a nice puppet"
             
             
             loss.backward()
