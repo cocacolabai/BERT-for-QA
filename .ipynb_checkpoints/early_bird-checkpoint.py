@@ -64,6 +64,7 @@ for epoch in trange(max_epoch):
     input_dict = {k: v.to(device) for k, v in input_dict.items()}
     loss, logits = model(next_sentence_label=answerable.to(device), 
                          **input_dict)
+    print("logits:", logits)
     loss.backward()
     optim.step()
     optim.zero_grad()
