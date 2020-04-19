@@ -14,7 +14,7 @@ device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cp
 print("using device",device)
 
 PRETRAINED_MODEL_NAME = "bert-base-chinese"  # 指定繁簡中文 BERT-BASE 預訓練模型
-model = BertModel.from_pretrained(PRETRAINED_MODEL_NAME, output_attentions=True).to(device)
+model = BertForQuestionAnswering.from_pretrained(PRETRAINED_MODEL_NAME, output_attentions=True).to(device)
 tokenizer = BertTokenizer.from_pretrained(PRETRAINED_MODEL_NAME)
 
 def main(_):
@@ -23,8 +23,6 @@ def main(_):
   bert_config = model.config
 
   tf.io.gfile.makedirs(output_dir)
-  
-  
   
   tpu_cluster_resolver = None
   if  use_tpu and  tpu_name:
@@ -665,6 +663,27 @@ def _check_is_max_context(doc_spans, cur_span_index, position):
 
   return cur_span_index == best_span_index
 
+def get_shape_list(tensor, expected_rank=None, name=None):
+    if name is None:
+        name = tensor.name
+
+    if expected_rank is not None:
+        assert_rank(tensor, expected_rank, name)
+
+    shape = tensor.shape.as_list()
+
+    non_static_indexes = []
+    for (index, dim) in enumerate(shape):
+        if dim is None:
+            non_static_indexes.append(index)
+
+    if not non_static_indexes:
+        return shape
+
+    dyn_shape = tf.shape(tensor)
+    for index in non_static_indexes:
+        shape[index] = dyn_shape[index]
+    return shape
 
 def create_model(is_training, input_ids, segment_ids,
                  use_one_hot_embeddings):
@@ -672,18 +691,18 @@ def create_model(is_training, input_ids, segment_ids,
 
   
 
-  final_hidden = model.get_sequence_output()
+  final_hidden = model.get_output_embeddings()
 
-  final_hidden_shape = BertModel.get_shape_list(final_hidden, expected_rank=3)
+  final_hidden_shape = get_shape_list(final_hidden, expected_rank=3)
   batch_size = final_hidden_shape[0]
   seq_length = final_hidden_shape[1]
   hidden_size = final_hidden_shape[2]
 
-  output_weights = tf.get_variable(
+  output_weights = tf.compat.v1.get_variable(
       "cls/squad/output_weights", [2, hidden_size],
       initializer=tf.truncated_normal_initializer(stddev=0.02))
 
-  output_bias = tf.get_variable(
+  output_bias = tf.compat.v1.get_variable(
       "cls/squad/output_bias", [2], initializer=tf.zeros_initializer())
 
   final_hidden_matrix = tf.reshape(final_hidden,
@@ -701,10 +720,36 @@ def create_model(is_training, input_ids, segment_ids,
   return (start_logits, end_logits)
 
 
+
 def model_fn_builder(init_checkpoint, learning_rate,
                      num_train_steps, num_warmup_steps, use_tpu,
                      use_one_hot_embeddings):
   """Returns `model_fn` closure for TPUEstimator."""
+  def get_assignment_map_from_checkpoint(tvars, init_checkpoint):
+    """Compute the union of the current variables and checkpoint variables."""
+    assignment_map = {}
+    initialized_variable_names = {}
+
+    name_to_variable = collections.OrderedDict()
+    for var in tvars:
+        name = var.name
+        m = re.match("^(.*):\\d+$", name)
+        if m is not None:
+            name = m.group(1)
+        name_to_variable[name] = var
+
+    init_vars = tf.train.list_variables(init_checkpoint)
+
+    assignment_map = collections.OrderedDict()
+    for x in init_vars:
+        (name, var) = (x[0], x[1])
+        if name not in name_to_variable:
+            continue
+        assignment_map[name] = name_to_variable[name]
+        initialized_variable_names[name] = 1
+        initialized_variable_names[name + ":0"] = 1
+
+    return (assignment_map, initialized_variable_names)
 
   def model_fn(features, labels, mode, params):  # pylint: disable=unused-argument
     """The `model_fn` for TPUEstimator."""
@@ -732,7 +777,7 @@ def model_fn_builder(init_checkpoint, learning_rate,
     scaffold_fn = None
     if init_checkpoint:
       (assignment_map, initialized_variable_names
-      ) = BertModel.get_assignment_map_from_checkpoint(tvars, init_checkpoint)
+      ) = get_assignment_map_from_checkpoint(tvars, init_checkpoint)
       if use_tpu:
 
         def tpu_scaffold():
@@ -753,7 +798,7 @@ def model_fn_builder(init_checkpoint, learning_rate,
 
     output_spec = None
     if mode == tf.estimator.ModeKeys.TRAIN:
-      seq_length = BertModel.get_shape_list(input_ids)[1]
+      seq_length = get_shape_list(input_ids)[1]
 
       def compute_loss(logits, positions):
         one_hot_positions = tf.one_hot(
