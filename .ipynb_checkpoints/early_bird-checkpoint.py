@@ -4,8 +4,8 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import *
 from tqdm.auto import trange, tqdm
 
-max_epoch = 10
-batch_size = 8
+max_epoch = 3
+batch_size = 4
 lr = 1e-4
 weight_decay = 0
 
