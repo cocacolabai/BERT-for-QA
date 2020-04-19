@@ -5,7 +5,7 @@ from transformers import *
 from tqdm.auto import trange, tqdm
 
 max_epoch = 3
-batch_size = 4
+batch_size = 2
 lr = 1e-4
 weight_decay = 0
 
@@ -43,9 +43,12 @@ valid_dataset = EarlyDataset("./data/dev.json", tokenizer)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
+best_valid_loss = float('inf')
 
 for epoch in trange(max_epoch):
-  for batch in tqdm(train_loader):
+  start_time = time.time()
+  pbar= tqdm(train_loader)
+  for batch in pbar:
     ids, contexts, questions, answerable = batch
     input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                              max_length=tokenizer.max_len, 
@@ -57,9 +60,10 @@ for epoch in trange(max_epoch):
     loss.backward()
     optim.step()
     optim.zero_grad()
-    tqdm(train_loader).set_description(f"train loss: {loss.item():.4f}")
+    pbar.set_description(f"train loss: {loss.item():.4f}")
   
-  for batch in tqdm(valid_loader):
+  pbar=tqdm(valid_loader)
+  for batch in pbar:
     ids, contexts, questions, answerable = batch
     input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                              max_length=tokenizer.max_len, 
@@ -69,4 +73,12 @@ for epoch in trange(max_epoch):
     loss, logits = model(next_sentence_label=answerable.to(device), 
                          **input_dict)
     
-    tqdm(valid_loader).set_description(f"val loss: {loss.item():.4f}")
+    pbar.set_description(f"val loss: {loss.item():.4f}")
+    
+    end_time = time.time()
+
+    epoch_mins, epoch_secs = epoch_time(start_time, end_time)
+
+    if valid_loss < best_valid_loss:
+        best_valid_loss = valid_loss
+        torch.save(model.state_dict(), './early_model.pt')

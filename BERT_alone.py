@@ -1280,6 +1280,6 @@ predict_file="./data/dev.json"
 train_batch_size=12
 learning_rate=3e-5
 num_train_epochs=2.0
-output_dir="../bert_output"
+output_dir="../bert_alone_output"
 
 tf.compat.v1.app.run()
