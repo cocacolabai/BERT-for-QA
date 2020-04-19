@@ -63,8 +63,8 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size)
 best_valid_loss = float('inf')
 
 for epoch in trange(max_epoch):
-  start_time = time.time()
-  with torch.no_grad():
+    start_time = time.time()
+    with torch.no_grad():
       pbar=tqdm(test_loader)
       for batch in pbar:
         ids, contexts, questions, answerable = batch
@@ -76,10 +76,11 @@ for epoch in trange(max_epoch):
         loss, logits = model(next_sentence_label=answerable.to(device), 
                              **input_dict)
         all_predictions = {}
-        if logits[0] > 0:
-            all_predictions[ids] = ""
-        else:
-            all_predictions[ids] = "have answer"
+        for i,id in zip(a[0]>0, ids):
+            if i:
+                all_predictions[id] = "have answer"
+            else:
+                all_predictions[id] = ""
     
     end_time = time.time()
 
@@ -87,4 +88,4 @@ for epoch in trange(max_epoch):
 
     if loss < best_valid_loss:
         best_valid_loss = loss
-        torch.save(model.state_dict(), './early_model.pt')
+        torch.save(model.state_dict(), '../early_model.pt')
