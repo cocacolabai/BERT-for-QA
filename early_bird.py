@@ -6,7 +6,7 @@ from tqdm.auto import trange, tqdm
 import time
 
 max_epoch = 3
-batch_size = 2
+batch_size = 4
 lr = 1e-4
 weight_decay = 0
 
@@ -64,7 +64,7 @@ for epoch in trange(max_epoch):
     input_dict = {k: v.to(device) for k, v in input_dict.items()}
     loss, logits = model(next_sentence_label=answerable.to(device), 
                          **input_dict)
-    print("logits:", logits)
+    print("logits:", logits[0])
     loss.backward()
     optim.step()
     optim.zero_grad()

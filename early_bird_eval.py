@@ -14,7 +14,7 @@ args = parser.parse_args()
 
 
 max_epoch = 3
-batch_size = 2
+batch_size = 4
 lr = 1e-4
 weight_decay = 0
 
@@ -75,8 +75,11 @@ for epoch in trange(max_epoch):
         input_dict = {k: v.to(device) for k, v in input_dict.items()}
         loss, logits = model(next_sentence_label=answerable.to(device), 
                              **input_dict)
-
-        
+        all_predictions = {}
+        if logits[0] > 0:
+            all_predictions[ids] = ""
+        else:
+            all_predictions[ids] = "have answer"
     
     end_time = time.time()
 
