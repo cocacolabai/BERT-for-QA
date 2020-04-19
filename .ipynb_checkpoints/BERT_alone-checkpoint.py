@@ -1,4 +1,4 @@
-from transformers import BertTokenizer, BertModel
+from transformers import BertTokenizer, BertModel, BertForQuestionAnswering
 import collections
 import json
 import math
