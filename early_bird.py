@@ -94,6 +94,6 @@ for epoch in trange(max_epoch):
     if loss < best_valid_loss:
         best_valid_loss = loss
 #         output_model_file = os.path.join("../pytorch_model_small.bin")
-        model_to_save.save_pretrained(output_dir)
-        model_to_save.config.to_json_file(output_config_file)
+        model.save_pretrained(output_dir)
+        model.config.to_json_file(output_config_file)
         tokenizer.save_vocabulary(output_dir)
