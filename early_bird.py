@@ -7,7 +7,6 @@ import time
 import os
 
 output_dir = '../pytorch_model_small/'
-output_config_file = '../pytorch_model_small/config.json'
 max_epoch = 3
 batch_size = 4
 lr = 1e-4
@@ -74,8 +73,8 @@ for epoch in trange(max_epoch):
     pbar.set_description(f"train loss: {loss.item():.4f}")
   
   with torch.no_grad():
-      pbar=tqdm(valid_loader)
-      for batch in pbar:
+    pbar=tqdm(valid_loader)
+    for batch in pbar:
         ids, contexts, questions, answerable = batch
         input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                  max_length=tokenizer.max_len, 
@@ -93,7 +92,16 @@ for epoch in trange(max_epoch):
 
     if loss < best_valid_loss:
         best_valid_loss = loss
-#         output_model_file = os.path.join("../pytorch_model_small.bin")
-        model.save_pretrained(output_dir)
-        model.config.to_json_file(output_config_file)
-        tokenizer.save_vocabulary(output_dir)
+        # Step 1: Save a model, configuration and vocabulary that you have fine-tuned
+
+        # If we have a distributed model, save only the encapsulated model
+        # (it was wrapped in PyTorch DistributedDataParallel or DataParallel)
+        model_to_save = model.module if hasattr(model, 'module') else model
+
+        # If we save using the predefined names, we can load using `from_pretrained`
+        output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
+        output_config_file = os.path.join(output_dir, CONFIG_NAME)
+
+        torch.save(model_to_save.state_dict(), output_model_file)
+        model_to_save.config.to_json_file(output_config_file)
+        tokenizer.save_pretrained(output_dir)
