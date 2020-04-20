@@ -15,16 +15,12 @@ args = parser.parse_args()
 
 output_dir = '../model/'
 
-max_epoch = 3
 batch_size = 4
-lr = 1e-4
-weight_decay = 0
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 tokenizer = BertTokenizer.from_pretrained(output_dir)
 model = BertForNextSentencePrediction.from_pretrained(output_dir).to(device)
-optim = AdamW(model.parameters(), lr)
 
 class EarlyDataset(Dataset):
   def __init__(self, path: str, tokenizer: BertTokenizer) -> None:
@@ -59,11 +55,9 @@ test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
 best_valid_loss = float('inf')
 
-for epoch in trange(max_epoch):
-    start_time = time.time()
-    with torch.no_grad():
-      pbar=tqdm(test_loader)
-      for batch in pbar:
+with torch.no_grad():
+    pbar=tqdm(test_loader)
+    for batch in pbar:
         ids, contexts, questions, answerable = batch
         input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                  max_length=tokenizer.max_len, 
@@ -78,11 +72,6 @@ for epoch in trange(max_epoch):
                 all_predictions[id] = "have answer"
             else:
                 all_predictions[id] = ""
-        
-    end_time = time.time()
-
-    epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-
 
 output_file=Path(args.output_path)
 output_file.write_text(json.dumps(all_predictions))
