@@ -12,7 +12,7 @@ parser.add_argument('--test_data_path')
 parser.add_argument('--output_path')
 args = parser.parse_args()
 
-
+model_file_path = '../early_model_big.pt'
 
 max_epoch = 3
 batch_size = 4
@@ -23,7 +23,8 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
 bert_pretrain_name = 'bert-base-chinese'
 tokenizer = BertTokenizer.from_pretrained(bert_pretrain_name)
-model = BertForNextSentencePrediction.from_pretrained(bert_pretrain_name).to(device)
+print(bool('.ckpt' in 'bert-base-chinese'))
+model = BertForNextSentencePrediction..from_pretrained(model_file_path, from_tf=bool('.ckpt' in 'bert-base-chinese')).to(device)
 
 ##### load checkpoint
 
@@ -82,7 +83,7 @@ for epoch in trange(max_epoch):
                 all_predictions[id] = "have answer"
             else:
                 all_predictions[id] = ""
-    
+        
     end_time = time.time()
 
     epoch_mins, epoch_secs = epoch_time(start_time, end_time)
