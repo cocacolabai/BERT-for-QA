@@ -12,10 +12,10 @@ parser.add_argument('--test_data_path')
 parser.add_argument('--output_path')
 args = parser.parse_args()
 
-model_file_path = '../early_model_big.pt'
+model_file_path = '../pytorch_model.bin'
 
 max_epoch = 3
-batch_size = 4
+batch_size = 8
 lr = 1e-4
 weight_decay = 0
 
@@ -24,7 +24,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 bert_pretrain_name = 'bert-base-chinese'
 tokenizer = BertTokenizer.from_pretrained(bert_pretrain_name)
 print(bool('.ckpt' in 'bert-base-chinese'))
-model = BertForNextSentencePrediction..from_pretrained(model_file_path, from_tf=bool('.ckpt' in 'bert-base-chinese')).to(device)
+model = BertForNextSentencePrediction.from_pretrained(model_file_path, from_tf=bool('.ckpt' in 'bert-base-chinese')).to(device)
 
 ##### load checkpoint
 
