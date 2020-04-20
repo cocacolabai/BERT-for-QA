@@ -48,6 +48,8 @@ def main(_):
 #             end_position=end_position,
 #             answerable=answerable
             
+            print("tokenizer.max_len=",tokenizer.max_len)
+            print("len(doc_tokens)=",len(doc_tokens))
             
             qas_id, question_text, doc_tokens, orig_answer_text, start_positions, end_positions, answerable = batch
             input_dict = tokenizer.batch_encode_plus(doc_tokens, question_text, 

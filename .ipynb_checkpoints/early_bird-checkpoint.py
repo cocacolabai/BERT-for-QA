@@ -6,7 +6,7 @@ from tqdm.auto import trange, tqdm
 import time
 import os
 
-output_dir = '../pytorch_model_small/'
+output_dir = '../model/'
 max_epoch = 3
 batch_size = 4
 lr = 1e-4
@@ -99,9 +99,5 @@ for epoch in trange(max_epoch):
         model_to_save = model.module if hasattr(model, 'module') else model
 
         # If we save using the predefined names, we can load using `from_pretrained`
-        output_model_file = os.path.join(output_dir, WEIGHTS_NAME)
-        output_config_file = os.path.join(output_dir, CONFIG_NAME)
-
-        torch.save(model_to_save.state_dict(), output_model_file)
-        model_to_save.config.to_json_file(output_config_file)
+        model_to_save.save_pretrained(output_dir)
         tokenizer.save_pretrained(output_dir)
