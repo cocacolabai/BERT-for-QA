@@ -7,6 +7,7 @@ from tqdm.auto import trange, tqdm
 import time
 from argparse import ArgumentParser
 
+
 parser = ArgumentParser()
 parser.add_argument('--test_data_path')
 parser.add_argument('--output_path')
@@ -15,7 +16,7 @@ args = parser.parse_args()
 model_file_path = '../pytorch_model.bin'
 
 max_epoch = 3
-batch_size = 8
+batch_size = 4
 lr = 1e-4
 weight_decay = 0
 

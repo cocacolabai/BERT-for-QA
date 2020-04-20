@@ -49,13 +49,13 @@ def main(_):
 #             answerable=answerable
             
             
-            ids, contexts, questions, answerable = batch
+            qas_id, question_text, doc_tokens, orig_answer_text, start_positions, end_positions, answerable = batch
             input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                      max_length=tokenizer.max_len, 
                                                      pad_to_max_length=True,
                                                      return_tensors='pt')
             input_dict = {k: v.to(device) for k, v in input_dict.items()}
-            loss, logits = model(next_sentence_label=answerable.to(device), 
+            loss, logits = model(start_positions=start_positions, end_positions=end_positions,
                                  **input_dict)
             
             

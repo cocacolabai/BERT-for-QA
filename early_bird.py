@@ -4,9 +4,10 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import *
 from tqdm.auto import trange, tqdm
 import time
+import os
 
 max_epoch = 3
-batch_size = 8
+batch_size = 4
 lr = 1e-4
 weight_decay = 0
 
@@ -90,5 +91,5 @@ for epoch in trange(max_epoch):
 
     if loss < best_valid_loss:
         best_valid_loss = loss
-        output_model_file = os.path.join("../pytorch_model.bin")
+        output_model_file = os.path.join("../pytorch_model_small.bin")
         torch.save(model.bert.state_dict(), output_model_file)
