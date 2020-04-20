@@ -50,7 +50,7 @@ def main(_):
             
             
             qas_id, question_text, doc_tokens, orig_answer_text, start_positions, end_positions, answerable = batch
-            input_dict = tokenizer.batch_encode_plus(contexts, questions, 
+            input_dict = tokenizer.batch_encode_plus(doc_tokens, question_text, 
                                                      max_length=tokenizer.max_len, 
                                                      pad_to_max_length=True,
                                                      return_tensors='pt')

@@ -6,6 +6,8 @@ from tqdm.auto import trange, tqdm
 import time
 import os
 
+output_dir = '../pytorch_model_small/'
+output_config_file = '../pytorch_model_small/config.json'
 max_epoch = 3
 batch_size = 4
 lr = 1e-4
@@ -91,5 +93,7 @@ for epoch in trange(max_epoch):
 
     if loss < best_valid_loss:
         best_valid_loss = loss
-        output_model_file = os.path.join("../pytorch_model_small.bin")
-        torch.save(model.bert.state_dict(), output_model_file)
+#         output_model_file = os.path.join("../pytorch_model_small.bin")
+        model_to_save.save_pretrained(output_dir)
+        model_to_save.config.to_json_file(output_config_file)
+        tokenizer.save_vocabulary(output_dir)
