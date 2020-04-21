@@ -72,7 +72,8 @@ with torch.no_grad():
             print(probs)
             all_predictions.update(
                {
-                    uid: 'answer' if prob > 0.5 else ''
+                    uid: 'answer' if prob < 0.7956 else ''
+
                     for uid, prob in zip(ids, probs)
                }
              )

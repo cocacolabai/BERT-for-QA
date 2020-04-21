@@ -48,8 +48,8 @@ def epoch_time(start_time, end_time):
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
     
-train_dataset = EarlyDataset("./data/train.json", tokenizer)
-valid_dataset = EarlyDataset("./data/dev.json", tokenizer)
+train_dataset = EarlyDataset("./data/train-small.json", tokenizer)
+valid_dataset = EarlyDataset("./data/dev-small.json", tokenizer)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
@@ -76,7 +76,7 @@ for epoch in trange(max_epoch):
     optim.zero_grad()
     pbar.set_description(f"train loss: {loss.item():.4f}")
   
-
+  model.eval()
   with torch.no_grad():
     pbar=tqdm(valid_loader)
     for batch in pbar:
