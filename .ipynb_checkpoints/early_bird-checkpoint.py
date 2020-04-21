@@ -6,7 +6,7 @@ from tqdm.auto import trange, tqdm
 import time
 import os
 
-output_dir = '../model_small/'
+output_dir = '../model/'
 max_epoch = 3
 batch_size = 4
 lr = 1e-4
@@ -48,8 +48,8 @@ def epoch_time(start_time, end_time):
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
     
-train_dataset = EarlyDataset("./data/train-small.json", tokenizer)
-valid_dataset = EarlyDataset("./data/dev-small.json", tokenizer)
+train_dataset = EarlyDataset("./data/train.json", tokenizer)
+valid_dataset = EarlyDataset("./data/dev.json", tokenizer)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 

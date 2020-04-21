@@ -13,7 +13,7 @@ parser.add_argument('--test_data_path')
 parser.add_argument('--output_path')
 args = parser.parse_args()
 
-output_dir = '../model_small/'
+output_dir = '../model/'
 
 
 batch_size = 4
