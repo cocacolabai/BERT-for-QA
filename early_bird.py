@@ -6,7 +6,7 @@ from tqdm.auto import trange, tqdm
 import time
 import os
 
-output_dir = '../model/'
+output_dir = '../model_small/'
 max_epoch = 3
 batch_size = 4
 lr = 1e-4
@@ -41,6 +41,7 @@ class EarlyDataset(Dataset):
     qa_id, context, question, answerable = self.data[index]
     return qa_id, context, question, int(answerable)
     
+
 def epoch_time(start_time, end_time):
     elapsed_time = end_time - start_time
     elapsed_mins = int(elapsed_time / 60)
@@ -54,8 +55,11 @@ valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
 best_valid_loss = float('inf')
 
+
 for epoch in trange(max_epoch):
+
   start_time = time.time()
+  model.train()
   pbar= tqdm(train_loader)
   for batch in pbar:
     ids, contexts, questions, answerable = batch
@@ -72,6 +76,7 @@ for epoch in trange(max_epoch):
     optim.zero_grad()
     pbar.set_description(f"train loss: {loss.item():.4f}")
   
+
   with torch.no_grad():
     pbar=tqdm(valid_loader)
     for batch in pbar:
@@ -86,11 +91,11 @@ for epoch in trange(max_epoch):
 
         pbar.set_description(f"val loss: {loss.item():.4f}")
     
-    end_time = time.time()
+  
+  end_time = time.time()
+  print("val loss:",loss)
 
-    epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-
-    if loss < best_valid_loss:
+  if loss < best_valid_loss:
         best_valid_loss = loss
         # Step 1: Save a model, configuration and vocabulary that you have fine-tuned
 
@@ -99,5 +104,7 @@ for epoch in trange(max_epoch):
         model_to_save = model.module if hasattr(model, 'module') else model
 
         # If we save using the predefined names, we can load using `from_pretrained`
+
         model_to_save.save_pretrained(output_dir)
         tokenizer.save_pretrained(output_dir)
+

@@ -84,7 +84,8 @@ def main(_):
                                                          pad_to_max_length=True,
                                                          return_tensors='pt')
                 input_dict = {k: v.to(device) for k, v in input_dict.items()}
-                loss, logits = model(next_sentence_label=answerable.to(device), 
+                
+                loss, logits = model(start_positions=start_positions, end_positions=end_positions,
                                      **input_dict)
 
                 pbar.set_description(f"val loss: {loss.item():.4f}")
@@ -95,7 +96,11 @@ def main(_):
 
         if loss < best_valid_loss:
             best_valid_loss = loss
-            torch.save(model.state_dict(), '../bert_model.pt')
+            model_to_save = model.module if hasattr(model, 'module') else model
+
+            # If we save using the predefined names, we can load using `from_pretrained`
+            model_to_save.save_pretrained(output_dir)
+            tokenizer.save_pretrained(output_dir)
 
 
     # If running eval on the TPU, you will need to specify the number of
@@ -822,6 +827,6 @@ dev_file="./data/dev-small.json" ###
 train_batch_size=12
 learning_rate=3e-5
 num_train_epochs=1.0 ###
-output_dir="../bert_alone_output"
+output_dir="../bert_alone_output/"
 
 tf.compat.v1.app.run()
