@@ -75,19 +75,18 @@ def main(_):
             optim.step()
             optim.zero_grad()
             pbar.set_description(f"train loss: {loss.item():.4f}")
-        with torch.no_grad():
-            pbar=tqdm(valid_loader)
-            for batch in pbar:
-                ids, contexts, questions, answerable = batch
-                input_dict = tokenizer.batch_encode_plus(contexts, questions, 
+            with torch.no_grad():
+                pbar=tqdm(valid_loader)
+                for batch in pbar:
+                    qas_id, question_text, doc_tokens, orig_answer_text, start_positions, end_positions, answerable = batch
+                input_dict = tokenizer.batch_encode_plus(doc_tokens, question_text, 
                                                          max_length=tokenizer.max_len, 
                                                          pad_to_max_length=True,
                                                          return_tensors='pt')
                 input_dict = {k: v.to(device) for k, v in input_dict.items()}
-                
                 loss, logits = model(start_positions=start_positions, end_positions=end_positions,
                                      **input_dict)
-
+            
                 pbar.set_description(f"val loss: {loss.item():.4f}")
 
         end_time = time.time()
