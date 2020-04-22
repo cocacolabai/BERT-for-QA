@@ -23,7 +23,7 @@ device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 tokenizer = BertTokenizer.from_pretrained(output_dir)
 model = BertForNextSentencePrediction.from_pretrained(output_dir).to(device)
 
-class EarlyDataset(Dataset):
+class EarlyTestDataset(Dataset):
   def __init__(self, path: str, tokenizer: BertTokenizer) -> None:
     self.tokenizer = tokenizer
     self.data = []
@@ -50,7 +50,7 @@ def epoch_time(start_time, end_time):
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
     
-test_dataset = EarlyDataset(args.test_data_path, tokenizer)
+test_dataset = EarlyTestDataset(args.test_data_path, tokenizer)
 test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
 best_valid_loss = float('inf')

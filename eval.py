@@ -4,258 +4,252 @@ from torch.utils.data import DataLoader, Dataset
 from transformers import *
 from tqdm.auto import trange, tqdm
 import time
+import tensorflow as tf
+from argparse import ArgumentParser
 
-max_epoch = 3
+
+parser = ArgumentParser()
+parser.add_argument('--test_data_path')
+parser.add_argument('--output_path')
+args = parser.parse_args()
+
+
+output_dir="../bert_model/"
+
 batch_size = 4
-lr = 1e-4
-weight_decay = 0
 
 device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
 
-bert_pretrain_name = 'bert-base-chinese'
-tokenizer = BertTokenizer.from_pretrained(bert_pretrain_name)
-model = BertForQuestionAnswering.from_pretrained(bert_pretrain_name).to(device)
-optim = AdamW(model.parameters(), lr)
 
-train_file="./data/train-small.json" 
-dev_file="./data/dev-small.json" 
-output_dir="../bert_model/"
+tokenizer = BertTokenizer.from_pretrained(output_dir)
+model = BertForNextSentencePrediction.from_pretrained(output_dir).to(device)
 
-def main(_):
-    bert_config = model.config
 
-    tf.io.gfile.makedirs(output_dir)
 
-    train_examples = None
-    num_train_steps = None
-    num_warmup_steps = None
-    train_dataset = read_squad_examples(input_file= train_file, is_training=True)
-    valid_dataset = read_squad_examples(input_file= dev_file, is_training=False)
+def is_whitespace(c):
+    if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F or ord(c) == 0x80:
+      return True
+    return False
+
+class QATestDataset(Dataset):
+  def __init__(self, path: str, tokenizer: BertTokenizer) -> None:
+    self.tokenizer = tokenizer
+    self.data = []
+    with open(path) as f:
+      for article in json.load(f)['data']:
+        parapraphs = article['paragraphs']
+        
+        ###########################
+        for para in parapraphs:
+          context = para['context']
+
+          doc_tokens = []
+          char_to_word_offset = []
+          prev_is_whitespace = True
+          for c in context:
+            if is_whitespace(c):
+              prev_is_whitespace = True
+            else:
+              if prev_is_whitespace:
+                doc_tokens.append(c)
+              else:
+                doc_tokens[-1] += c
+              prev_is_whitespace = False
+            char_to_word_offset.append(len(doc_tokens) - 1)
+        ###########################
+        
+          for qa in para['qas']:
+            qa_id = qa['id']
+            question = qa['question']
+            self.data.append((qa_id, context, question, doc_tokens))
+  
+  def __len__(self) -> int:
+    return len(self.data)
+
+  def __getitem__(self, index: int):
+    qa_id, context, question, doc_tokens = self.data[index]
+    return qa_id, context, question, doc_tokens
     
-    train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
-    valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
+def epoch_time(start_time, end_time):
+    elapsed_time = end_time - start_time
+    elapsed_mins = int(elapsed_time / 60)
+    elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
+    return elapsed_mins, elapsed_secs
+    
+test_dataset = QADataset(args.test_data_path, tokenizer)
+test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
-    best_valid_loss = float('inf')
 
-    for epoch in trange(max_epoch):
-        start_time = time.time()
-        pbar= tqdm(train_loader)
-        for batch in pbar:
-            model.train()
-            
+
+best_valid_loss = float('inf')
+
+all_predictions = {}
+
+model.eval()
+with torch.no_grad():
+    pbar=tqdm(test_loader)
+    for batch in pbar:
+        ids, contexts, questions, doc_tokens = batch
+        input_dict = tokenizer.batch_encode_plus(contexts, questions, 
+                                                 max_length=tokenizer.max_len, 
+                                                 pad_to_max_length=True,
+                                                 return_tensors='pt')
+        input_dict = {k: v.to(device) for k, v in input_dict.items()}
+        logits = model(**input_dict)[0]
+        print(logits)
+        pbar.set_description(f"val loss: {loss.item():.4f}")
+
+# class SquadExample(object):
+#   """A single training/test example for simple sequence classification.
+
+#      For examples without an answer, the start and end position are -1.
+#   """
+
+#   def __init__(self,
+#                qas_id,
+#                question_text,
+#                doc_tokens,
+#                orig_answer_text=None,
+#                start_position=None,
+#                end_position=None,
+#                answerable=True):
+#     self.qas_id = qas_id
+#     self.question_text = question_text
+#     self.doc_tokens = doc_tokens
+#     self.orig_answer_text = orig_answer_text
+#     self.start_position = start_position
+#     self.end_position = end_position
+#     self.answerable = answerable
+
+#   def __str__(self):
+#     return self.__repr__()
+
+#   def __repr__(self):
+#     s = ""
+#     s += "qas_id: %s" % (printable_text(self.qas_id))
+#     s += ", question_text: %s" % (
+#         printable_text(self.question_text))
+#     s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
+#     if self.start_position:
+#       s += ", start_position: %d" % (self.start_position)
+#     if self.start_position:
+#       s += ", end_position: %d" % (self.end_position)
+#     if self.start_position:
+#       s += ", answerable: %r" % (self.answerable)
+#     return s
+
+
+# def whitespace_tokenize(text):
+#   """Runs basic whitespace cleaning and splitting on a piece of text."""
+#   text = text.strip()
+#   if not text:
+#     return []
+#   tokens = text.split()
+#   return tokens
+
+# def printable_text(text):
+#   """Returns text encoded in a way suitable for print or `tf.logging`."""
+
+#   # These functions want `str` for both Python2 and Python3, but in one case
+#   # it's a Unicode string and in the other it's a byte string.
+#   if six.PY3:
+#     if isinstance(text, str):
+#       return text
+#     elif isinstance(text, bytes):
+#       return text.decode("utf-8", "ignore")
+#     else:
+#       raise ValueError("Unsupported string type: %s" % (type(text)))
+#   elif six.PY2:
+#     if isinstance(text, str):
+#       return text
+#     elif isinstance(text, unicode):
+#       return text.encode("utf-8")
+#     else:
+#       raise ValueError("Unsupported string type: %s" % (type(text)))
+#   else:
+#     raise ValueError("Not running on Python2 or Python 3?")
+    
+    
+# def read_squad_examples(input_file, is_training):
+#   """Read a SQuAD json file into a list of SquadExample."""
+#   with tf.compat.v1.gfile.Open(input_file, "r") as reader:
+#     input_data = json.load(reader)["data"]
+
+#   def is_whitespace(c):
+#     if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F or ord(c) == 0x80:
+#       return True
+#     return False
+
+#   examples = []
+
+#   for entry in input_data:
+#     for paragraph in entry["paragraphs"]:
+#       paragraph_text = paragraph["context"]
+#       doc_tokens = []
+#       char_to_word_offset = []
+#       prev_is_whitespace = True
+#       for c in paragraph_text:
+#         if is_whitespace(c):
+#           prev_is_whitespace = True
+#         else:
+#           if prev_is_whitespace:
+#             doc_tokens.append(c)
+#           else:
+#             doc_tokens[-1] += c
+#           prev_is_whitespace = False
+#         char_to_word_offset.append(len(doc_tokens) - 1)
+
+#       for qa in paragraph["qas"]:
+#         qas_id = qa["id"]
+#         question_text = qa["question"]
+#         start_position = None
+#         end_position = None
+#         orig_answer_text = None
+#         answerable = True
+#         if is_training:
+
+#           if version_2_with_negative:
+#             answerable = qa["answerable"]
+# #           if (len(qa["answers"]) != 1) and answerable:
+# #             raise ValueError(
+# #                 "For training, each question should have exactly 1 answer.")
+#           if answerable:
+#             answer = qa["answers"][0]
+#             orig_answer_text = answer["text"]
+#             answer_offset = answer["answer_start"]
+#             answer_length = len(orig_answer_text)
+#             start_position = char_to_word_offset[answer_offset]
+#             end_position = char_to_word_offset[answer_offset + answer_length -
+#                                                1]
+#             # Only add answers where the text can be exactly recovered from the
+#             # document. If this CAN'T happen it's likely due to weird Unicode
+#             # stuff so we will just skip the example.
+#             #
+#             # Note that this means for training mode, every example is NOT
+#             # guaranteed to be preserved.
+#             actual_text = " ".join(
+#                 doc_tokens[start_position:(end_position + 1)])
+#             cleaned_answer_text = " ".join(
+#                 whitespace_tokenize(orig_answer_text))
+#             if actual_text.find(cleaned_answer_text) == -1:
+#               tf.compat.v1.logging.warning("Could not find answer: '%s' vs. '%s'",
+#                                  actual_text, cleaned_answer_text)
+#               continue
+#           else:
+#             start_position = -1
+#             end_position = -1
+#             orig_answer_text = ""
+
+#         example = SquadExample(
 #             qas_id=qas_id,
 #             question_text=question_text,
 #             doc_tokens=doc_tokens,
 #             orig_answer_text=orig_answer_text,
 #             start_position=start_position,
 #             end_position=end_position,
-#             answerable=answerable
-            
-            print("tokenizer.max_len=",tokenizer.max_len)
-            print("len(doc_tokens)=",len(doc_tokens))
-            
-            qas_id, question_text, doc_tokens, orig_answer_text, start_positions, end_positions, answerable = batch
-            input_dict = tokenizer.batch_encode_plus(doc_tokens, question_text, 
-                                                     max_length=tokenizer.max_len, 
-                                                     pad_to_max_length=True,
-                                                     return_tensors='pt')
-            input_dict = {k: v.to(device) for k, v in input_dict.items()}
-            loss, logits = model(start_positions=start_positions, end_positions=end_positions,
-                                 **input_dict)
-            
-            
-#             question, text = "Who was Jim Henson?", "Jim Henson was a nice puppet"
-#             encoding = tokenizer.encode_plus(question, text)
-#             input_ids, token_type_ids = encoding["input_ids"], encoding["token_type_ids"]
-#             start_scores, end_scores = model(torch.tensor([input_ids]), token_type_ids=torch.tensor([token_type_ids]))
-
-#             all_tokens = tokenizer.convert_ids_to_tokens(input_ids)
-#             answer = ' '.join(all_tokens[torch.argmax(start_scores) : torch.argmax(end_scores)+1])
-#             assert answer == "a nice puppet"
-            
-            
-            loss.backward()
-            optim.step()
-            optim.zero_grad()
-            pbar.set_description(f"train loss: {loss.item():.4f}")
-            with torch.no_grad():
-                pbar=tqdm(valid_loader)
-                for batch in pbar:
-                    qas_id, question_text, doc_tokens, orig_answer_text, start_positions, end_positions, answerable = batch
-                input_dict = tokenizer.batch_encode_plus(doc_tokens, question_text, 
-                                                         max_length=tokenizer.max_len, 
-                                                         pad_to_max_length=True,
-                                                         return_tensors='pt')
-                input_dict = {k: v.to(device) for k, v in input_dict.items()}
-                loss, logits = model(start_positions=start_positions, end_positions=end_positions,
-                                     **input_dict)
-            
-                pbar.set_description(f"val loss: {loss.item():.4f}")
-
-        end_time = time.time()
-
-        epoch_mins, epoch_secs = epoch_time(start_time, end_time)
-
-        if loss < best_valid_loss:
-            best_valid_loss = loss
-            model_to_save = model.module if hasattr(model, 'module') else model
-
-            # If we save using the predefined names, we can load using `from_pretrained`
-            model_to_save.save_pretrained(output_dir)
-            tokenizer.save_pretrained(output_dir)
-
-
-class SquadExample(object):
-  """A single training/test example for simple sequence classification.
-
-     For examples without an answer, the start and end position are -1.
-  """
-
-  def __init__(self,
-               qas_id,
-               question_text,
-               doc_tokens,
-               orig_answer_text=None,
-               start_position=None,
-               end_position=None,
-               answerable=True):
-    self.qas_id = qas_id
-    self.question_text = question_text
-    self.doc_tokens = doc_tokens
-    self.orig_answer_text = orig_answer_text
-    self.start_position = start_position
-    self.end_position = end_position
-    self.answerable = answerable
-
-  def __str__(self):
-    return self.__repr__()
-
-  def __repr__(self):
-    s = ""
-    s += "qas_id: %s" % (printable_text(self.qas_id))
-    s += ", question_text: %s" % (
-        printable_text(self.question_text))
-    s += ", doc_tokens: [%s]" % (" ".join(self.doc_tokens))
-    if self.start_position:
-      s += ", start_position: %d" % (self.start_position)
-    if self.start_position:
-      s += ", end_position: %d" % (self.end_position)
-    if self.start_position:
-      s += ", answerable: %r" % (self.answerable)
-    return s
-
-
-def whitespace_tokenize(text):
-  """Runs basic whitespace cleaning and splitting on a piece of text."""
-  text = text.strip()
-  if not text:
-    return []
-  tokens = text.split()
-  return tokens
-
-def printable_text(text):
-  """Returns text encoded in a way suitable for print or `tf.logging`."""
-
-  # These functions want `str` for both Python2 and Python3, but in one case
-  # it's a Unicode string and in the other it's a byte string.
-  if six.PY3:
-    if isinstance(text, str):
-      return text
-    elif isinstance(text, bytes):
-      return text.decode("utf-8", "ignore")
-    else:
-      raise ValueError("Unsupported string type: %s" % (type(text)))
-  elif six.PY2:
-    if isinstance(text, str):
-      return text
-    elif isinstance(text, unicode):
-      return text.encode("utf-8")
-    else:
-      raise ValueError("Unsupported string type: %s" % (type(text)))
-  else:
-    raise ValueError("Not running on Python2 or Python 3?")
-    
-    
-def read_squad_examples(input_file, is_training):
-  """Read a SQuAD json file into a list of SquadExample."""
-  with tf.compat.v1.gfile.Open(input_file, "r") as reader:
-    input_data = json.load(reader)["data"]
-
-  def is_whitespace(c):
-    if c == " " or c == "\t" or c == "\r" or c == "\n" or ord(c) == 0x202F or ord(c) == 0x80:
-      return True
-    return False
-
-  examples = []
-
-  for entry in input_data:
-    for paragraph in entry["paragraphs"]:
-      paragraph_text = paragraph["context"]
-      doc_tokens = []
-      char_to_word_offset = []
-      prev_is_whitespace = True
-      for c in paragraph_text:
-        if is_whitespace(c):
-          prev_is_whitespace = True
-        else:
-          if prev_is_whitespace:
-            doc_tokens.append(c)
-          else:
-            doc_tokens[-1] += c
-          prev_is_whitespace = False
-        char_to_word_offset.append(len(doc_tokens) - 1)
-
-      for qa in paragraph["qas"]:
-        qas_id = qa["id"]
-        question_text = qa["question"]
-        start_position = None
-        end_position = None
-        orig_answer_text = None
-        answerable = True
-        if is_training:
-
-          if version_2_with_negative:
-            answerable = qa["answerable"]
-          if (len(qa["answers"]) != 1) and answerable:
-            raise ValueError(
-                "For training, each question should have exactly 1 answer.")
-          if answerable:
-            answer = qa["answers"][0]
-            orig_answer_text = answer["text"]
-            answer_offset = answer["answer_start"]
-            answer_length = len(orig_answer_text)
-            start_position = char_to_word_offset[answer_offset]
-            end_position = char_to_word_offset[answer_offset + answer_length -
-                                               1]
-            # Only add answers where the text can be exactly recovered from the
-            # document. If this CAN'T happen it's likely due to weird Unicode
-            # stuff so we will just skip the example.
-            #
-            # Note that this means for training mode, every example is NOT
-            # guaranteed to be preserved.
-            actual_text = " ".join(
-                doc_tokens[start_position:(end_position + 1)])
-            cleaned_answer_text = " ".join(
-                whitespace_tokenize(orig_answer_text))
-            if actual_text.find(cleaned_answer_text) == -1:
-              tf.compat.v1.logging.warning("Could not find answer: '%s' vs. '%s'",
-                                 actual_text, cleaned_answer_text)
-              continue
-          else:
-            start_position = -1
-            end_position = -1
-            orig_answer_text = ""
-
-        example = SquadExample(
-            qas_id=qas_id,
-            question_text=question_text,
-            doc_tokens=doc_tokens,
-            orig_answer_text=orig_answer_text,
-            start_position=start_position,
-            end_position=end_position,
-            answerable=answerable)
-        examples.append(example)
-  return examples
+#             answerable=answerable)
+#         examples.append(example)
+#   return examples
 
 
 def write_predictions(all_examples, all_features, all_results, n_best_size,
@@ -444,134 +438,134 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
       writer.write(json.dumps(scores_diff_json, indent=4) + "\n")
 
 
-def get_final_text(pred_text, orig_text, do_lower_case):
-  """Project the tokenized prediction back to the original text."""
+# def get_final_text(pred_text, orig_text, do_lower_case):
+#   """Project the tokenized prediction back to the original text."""
 
-  # When we created the data, we kept track of the alignment between original
-  # (whitespace tokenized) tokens and our WordPiece tokenized tokens. So
-  # now `orig_text` contains the span of our original text corresponding to the
-  # span that we predicted.
-  #
-  # However, `orig_text` may contain extra characters that we don't want in
-  # our prediction.
-  #
-  # For example, let's say:
-  #   pred_text = steve smith
-  #   orig_text = Steve Smith's
-  #
-  # We don't want to return `orig_text` because it contains the extra "'s".
-  #
-  # We don't want to return `pred_text` because it's already been normalized
-  # (the SQuAD eval script also does punctuation stripping/lower casing but
-  # our tokenizer does additional normalization like stripping accent
-  # characters).
-  #
-  # What we really want to return is "Steve Smith".
-  #
-  # Therefore, we have to apply a semi-complicated alignment heruistic between
-  # `pred_text` and `orig_text` to get a character-to-charcter alignment. This
-  # can fail in certain cases in which case we just return `orig_text`.
+#   # When we created the data, we kept track of the alignment between original
+#   # (whitespace tokenized) tokens and our WordPiece tokenized tokens. So
+#   # now `orig_text` contains the span of our original text corresponding to the
+#   # span that we predicted.
+#   #
+#   # However, `orig_text` may contain extra characters that we don't want in
+#   # our prediction.
+#   #
+#   # For example, let's say:
+#   #   pred_text = steve smith
+#   #   orig_text = Steve Smith's
+#   #
+#   # We don't want to return `orig_text` because it contains the extra "'s".
+#   #
+#   # We don't want to return `pred_text` because it's already been normalized
+#   # (the SQuAD eval script also does punctuation stripping/lower casing but
+#   # our tokenizer does additional normalization like stripping accent
+#   # characters).
+#   #
+#   # What we really want to return is "Steve Smith".
+#   #
+#   # Therefore, we have to apply a semi-complicated alignment heruistic between
+#   # `pred_text` and `orig_text` to get a character-to-charcter alignment. This
+#   # can fail in certain cases in which case we just return `orig_text`.
 
-  def _strip_spaces(text):
-    ns_chars = []
-    ns_to_s_map = collections.OrderedDict()
-    for (i, c) in enumerate(text):
-      if c == " ":
-        continue
-      ns_to_s_map[len(ns_chars)] = i
-      ns_chars.append(c)
-    ns_text = "".join(ns_chars)
-    return (ns_text, ns_to_s_map)
+#   def _strip_spaces(text):
+#     ns_chars = []
+#     ns_to_s_map = collections.OrderedDict()
+#     for (i, c) in enumerate(text):
+#       if c == " ":
+#         continue
+#       ns_to_s_map[len(ns_chars)] = i
+#       ns_chars.append(c)
+#     ns_text = "".join(ns_chars)
+#     return (ns_text, ns_to_s_map)
 
-  # We first tokenize `orig_text`, strip whitespace from the result
-  # and `pred_text`, and check if they are the same length. If they are
-  # NOT the same length, the heuristic has failed. If they are the same
-  # length, we assume the characters are one-to-one aligned.
+#   # We first tokenize `orig_text`, strip whitespace from the result
+#   # and `pred_text`, and check if they are the same length. If they are
+#   # NOT the same length, the heuristic has failed. If they are the same
+#   # length, we assume the characters are one-to-one aligned.
 
-  tok_text = " ".join(tokenizer.tokenize(orig_text))
+#   tok_text = " ".join(tokenizer.tokenize(orig_text))
 
-  start_position = tok_text.find(pred_text)
-  if start_position == -1:
-    if  verbose_logging:
-      tf.compat.v1.logging.info(
-          "Unable to find text: '%s' in '%s'" % (pred_text, orig_text))
-    return orig_text
-  end_position = start_position + len(pred_text) - 1
+#   start_position = tok_text.find(pred_text)
+#   if start_position == -1:
+#     if  verbose_logging:
+#       tf.compat.v1.logging.info(
+#           "Unable to find text: '%s' in '%s'" % (pred_text, orig_text))
+#     return orig_text
+#   end_position = start_position + len(pred_text) - 1
 
-  (orig_ns_text, orig_ns_to_s_map) = _strip_spaces(orig_text)
-  (tok_ns_text, tok_ns_to_s_map) = _strip_spaces(tok_text)
+#   (orig_ns_text, orig_ns_to_s_map) = _strip_spaces(orig_text)
+#   (tok_ns_text, tok_ns_to_s_map) = _strip_spaces(tok_text)
 
-  if len(orig_ns_text) != len(tok_ns_text):
-    if  verbose_logging:
-      tf.compat.v1.logging.info("Length not equal after stripping spaces: '%s' vs '%s'",
-                      orig_ns_text, tok_ns_text)
-    return orig_text
+#   if len(orig_ns_text) != len(tok_ns_text):
+#     if  verbose_logging:
+#       tf.compat.v1.logging.info("Length not equal after stripping spaces: '%s' vs '%s'",
+#                       orig_ns_text, tok_ns_text)
+#     return orig_text
 
-  # We then project the characters in `pred_text` back to `orig_text` using
-  # the character-to-character alignment.
-  tok_s_to_ns_map = {}
-  for (i, tok_index) in six.iteritems(tok_ns_to_s_map):
-    tok_s_to_ns_map[tok_index] = i
+#   # We then project the characters in `pred_text` back to `orig_text` using
+#   # the character-to-character alignment.
+#   tok_s_to_ns_map = {}
+#   for (i, tok_index) in six.iteritems(tok_ns_to_s_map):
+#     tok_s_to_ns_map[tok_index] = i
 
-  orig_start_position = None
-  if start_position in tok_s_to_ns_map:
-    ns_start_position = tok_s_to_ns_map[start_position]
-    if ns_start_position in orig_ns_to_s_map:
-      orig_start_position = orig_ns_to_s_map[ns_start_position]
+#   orig_start_position = None
+#   if start_position in tok_s_to_ns_map:
+#     ns_start_position = tok_s_to_ns_map[start_position]
+#     if ns_start_position in orig_ns_to_s_map:
+#       orig_start_position = orig_ns_to_s_map[ns_start_position]
 
-  if orig_start_position is None:
-    if  verbose_logging:
-      tf.compat.v1.logging.info("Couldn't map start position")
-    return orig_text
+#   if orig_start_position is None:
+#     if  verbose_logging:
+#       tf.compat.v1.logging.info("Couldn't map start position")
+#     return orig_text
 
-  orig_end_position = None
-  if end_position in tok_s_to_ns_map:
-    ns_end_position = tok_s_to_ns_map[end_position]
-    if ns_end_position in orig_ns_to_s_map:
-      orig_end_position = orig_ns_to_s_map[ns_end_position]
+#   orig_end_position = None
+#   if end_position in tok_s_to_ns_map:
+#     ns_end_position = tok_s_to_ns_map[end_position]
+#     if ns_end_position in orig_ns_to_s_map:
+#       orig_end_position = orig_ns_to_s_map[ns_end_position]
 
-  if orig_end_position is None:
-    if  verbose_logging:
-      tf.compat.v1.logging.info("Couldn't map end position")
-    return orig_text
+#   if orig_end_position is None:
+#     if  verbose_logging:
+#       tf.compat.v1.logging.info("Couldn't map end position")
+#     return orig_text
 
-  output_text = orig_text[orig_start_position:(orig_end_position + 1)]
-  return output_text
-
-
-def _get_best_indexes(logits, n_best_size):
-  """Get the n-best logits from a list."""
-  index_and_score = sorted(enumerate(logits), key=lambda x: x[1], reverse=True)
-
-  best_indexes = []
-  for i in range(len(index_and_score)):
-    if i >= n_best_size:
-      break
-    best_indexes.append(index_and_score[i][0])
-  return best_indexes
+#   output_text = orig_text[orig_start_position:(orig_end_position + 1)]
+#   return output_text
 
 
-def _compute_softmax(scores):
-  """Compute softmax probability over raw logits."""
-  if not scores:
-    return []
+# def _get_best_indexes(logits, n_best_size):
+#   """Get the n-best logits from a list."""
+#   index_and_score = sorted(enumerate(logits), key=lambda x: x[1], reverse=True)
 
-  max_score = None
-  for score in scores:
-    if max_score is None or score > max_score:
-      max_score = score
+#   best_indexes = []
+#   for i in range(len(index_and_score)):
+#     if i >= n_best_size:
+#       break
+#     best_indexes.append(index_and_score[i][0])
+#   return best_indexes
 
-  exp_scores = []
-  total_sum = 0.0
-  for score in scores:
-    x = math.exp(score - max_score)
-    exp_scores.append(x)
-    total_sum += x
 
-  probs = []
-  for score in exp_scores:
-    probs.append(score / total_sum)
-  return probs
+# def _compute_softmax(scores):
+#   """Compute softmax probability over raw logits."""
+#   if not scores:
+#     return []
+
+#   max_score = None
+#   for score in scores:
+#     if max_score is None or score > max_score:
+#       max_score = score
+
+#   exp_scores = []
+#   total_sum = 0.0
+#   for score in scores:
+#     x = math.exp(score - max_score)
+#     exp_scores.append(x)
+#     total_sum += x
+
+#   probs = []
+#   for score in exp_scores:
+#     probs.append(score / total_sum)
+#   return probs
 
 
 do_lower_case = True
@@ -583,5 +577,4 @@ verbose_logging = False
 max_answer_length = 30
 n_best_size = 20
 
-
-tf.compat.v1.app.run()
+main()
