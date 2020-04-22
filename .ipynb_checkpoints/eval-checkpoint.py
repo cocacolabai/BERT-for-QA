@@ -76,7 +76,7 @@ def epoch_time(start_time, end_time):
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
     
-test_dataset = QADataset(args.test_data_path, tokenizer)
+test_dataset = QATestDataset(args.test_data_path, tokenizer)
 test_loader = DataLoader(test_dataset, batch_size=batch_size)
 
 
