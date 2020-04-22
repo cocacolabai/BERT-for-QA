@@ -40,7 +40,7 @@ class QATestDataset(Dataset):
         parapraphs = article['paragraphs']
         
         ###########################
-        for idx in parapraphs:
+        for para in parapraphs:
           context = para['context']
 
           doc_tokens = []
@@ -90,14 +90,12 @@ with torch.no_grad():
     pbar=tqdm(test_loader)
     for batch in pbar:
         ids, contexts, questions, doc_tokens = batch
-        print(contexts, questions)
         input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                  max_length=tokenizer.max_len, 
                                                  pad_to_max_length=True,
                                                  return_tensors='pt')
         input_dict = {k: v.to(device) for k, v in input_dict.items()}
         logits = model(**input_dict)[0]
-        print(logits)
 
 # class SquadExample(object):
 #   """A single training/test example for simple sequence classification.
@@ -568,13 +566,13 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
 #   return probs
 
 
-do_lower_case = True
+# do_lower_case = True
 
-null_score_diff_threshold = 0.0
-version_2_with_negative = False
-verbose_logging = False
+# null_score_diff_threshold = 0.0
+# version_2_with_negative = False
+# verbose_logging = False
 
-max_answer_length = 30
-n_best_size = 20
+# max_answer_length = 30
+# n_best_size = 20
 
-main()
+# main()

@@ -629,16 +629,16 @@ for epoch in trange(max_epoch):
 #   return probs
 
 
-do_lower_case = True
+# do_lower_case = True
 
-null_score_diff_threshold = 0.0
-version_2_with_negative = False
-verbose_logging = False
+# null_score_diff_threshold = 0.0
+# version_2_with_negative = False
+# verbose_logging = False
 
-max_answer_length = 30
-n_best_size = 20
+# max_answer_length = 30
+# n_best_size = 20
 
-main()
+# main()
 
 
 
