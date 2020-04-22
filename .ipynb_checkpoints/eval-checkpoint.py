@@ -40,7 +40,7 @@ class QATestDataset(Dataset):
         parapraphs = article['paragraphs']
         
         ###########################
-        for para in parapraphs:
+        for idx in parapraphs:
           context = para['context']
 
           doc_tokens = []
@@ -98,7 +98,6 @@ with torch.no_grad():
         input_dict = {k: v.to(device) for k, v in input_dict.items()}
         logits = model(**input_dict)[0]
         print(logits)
-        pbar.set_description(f"val loss: {loss.item():.4f}")
 
 # class SquadExample(object):
 #   """A single training/test example for simple sequence classification.
