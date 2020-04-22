@@ -112,6 +112,7 @@ for epoch in trange(max_epoch):
   pbar= tqdm(train_loader)
   for batch in pbar:
     ids, contexts, questions, doc_tokens, orig_answer_text, start_position, end_position, answerable = batch
+    print(ids)
     input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                              max_length=tokenizer.max_len, 
                                              pad_to_max_length=True,
