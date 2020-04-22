@@ -90,6 +90,7 @@ with torch.no_grad():
     pbar=tqdm(test_loader)
     for batch in pbar:
         ids, contexts, questions, doc_tokens = batch
+        print(contexts, questions)
         input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                  max_length=tokenizer.max_len, 
                                                  pad_to_max_length=True,
