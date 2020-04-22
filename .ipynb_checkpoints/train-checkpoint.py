@@ -117,7 +117,7 @@ for epoch in trange(max_epoch):
                                              pad_to_max_length=True,
                                              return_tensors='pt')
     input_dict = {k: v.to(device) for k, v in input_dict.items()}
-    print(start_position, end_position)
+#     print(start_position, end_position)
     outputs = model(start_positions=start_position.to(device), end_positions=end_position.to(device),
                                  **input_dict)
     loss = outputs[0]
