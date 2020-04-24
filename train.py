@@ -31,28 +31,15 @@ class QADataset(Dataset):
   def __init__(self, path: str, tokenizer: BertTokenizer) -> None:
     self.tokenizer = tokenizer
     self.data = []
-    with open(path) as f:
+    with open(args.test_data_path) as f:
       for article in json.load(f)['data']:
-        parapraphs = article['paragraphs']
-        
-        ###########################
-        for para in parapraphs:
-          context = para['context']
-
+        for para in article['paragraphs']:
+          context = para["context"]
           doc_tokens = []
           char_to_word_offset = []
-          prev_is_whitespace = True
           for c in context:
-            if is_whitespace(c):
-              prev_is_whitespace = True
-            else:
-              if prev_is_whitespace:
                 doc_tokens.append(c)
-              else:
-                doc_tokens[-1] += c
-              prev_is_whitespace = False
-            char_to_word_offset.append(len(doc_tokens) - 1)
-        ###########################
+                char_to_word_offset.append(len(doc_tokens) - 1)  
         
           for qa in para['qas']:
             qa_id = qa['id']
@@ -65,12 +52,8 @@ class QADataset(Dataset):
                 answer_length = len(orig_answer_text)
                 start_position = char_to_word_offset[answer_offset]
                 end_position = char_to_word_offset[answer_offset + answer_length -1]
-                actual_text = " ".join(
-                    doc_tokens[start_position:(end_position + 1)])
-                if actual_text.find(orig_answer_text) == -1:
-                  tf.compat.v1.logging.warning("Could not find answer: '%s' vs. '%s'",
-                                     actual_text, orig_answer_text)
-                  continue
+                actual_text = " ".join(doc_tokens[start_position:(end_position + 1)])
+                tf.compat.v1.logging.warning("Find answer: '%s' vs. '%s'",actual_text, orig_answer_text)
             else:
                 start_position = -1
                 end_position = -1

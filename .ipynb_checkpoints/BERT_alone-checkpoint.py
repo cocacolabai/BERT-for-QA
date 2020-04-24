@@ -276,8 +276,7 @@ def read_squad_examples(input_file, is_training):
             answer_offset = answer["answer_start"]
             answer_length = len(orig_answer_text)
             start_position = char_to_word_offset[answer_offset]
-            end_position = char_to_word_offset[answer_offset + answer_length -
-                                               1]
+            end_position = char_to_word_offset[answer_offset + answer_length -1]
             # Only add answers where the text can be exactly recovered from the
             # document. If this CAN'T happen it's likely due to weird Unicode
             # stuff so we will just skip the example.
@@ -478,13 +477,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
       start_indexes = _get_best_indexes(result.start_logits, n_best_size)
       end_indexes = _get_best_indexes(result.end_logits, n_best_size)
       # if we could have irrelevant answers, get the min score of irrelevant
-      if  version_2_with_negative:
-        feature_null_score = result.start_logits[0] + result.end_logits[0]
-        if feature_null_score < score_null:
-          score_null = feature_null_score
-          min_null_feature_index = feature_index
-          null_start_logit = result.start_logits[0]
-          null_end_logit = result.end_logits[0]
+      
       for start_index in start_indexes:
         for end_index in end_indexes:
           # We could hypothetically create invalid predictions, e.g., predict
@@ -513,14 +506,6 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
                   start_logit=result.start_logits[start_index],
                   end_logit=result.end_logits[end_index]))
 
-    if  version_2_with_negative:
-      prelim_predictions.append(
-          _PrelimPrediction(
-              feature_index=min_null_feature_index,
-              start_index=0,
-              end_index=0,
-              start_logit=null_start_logit,
-              end_logit=null_end_logit))
     prelim_predictions = sorted(
         prelim_predictions,
         key=lambda x: (x.start_logit + x.end_logit),
@@ -566,15 +551,7 @@ def write_predictions(all_examples, all_features, all_results, n_best_size,
               start_logit=pred.start_logit,
               end_logit=pred.end_logit))
 
-    # if we didn't inlude the empty option in the n-best, inlcude it
-    if  version_2_with_negative:
-      if "" not in seen_predictions:
-        nbest.append(
-            _NbestPrediction(
-                text="", start_logit=null_start_logit,
-                end_logit=null_end_logit))
-    # In very rare edge cases we could have no valid predictions. So we
-    # just create a nonce prediction in this case to avoid failure.
+   
     if not nbest:
       nbest.append(
           _NbestPrediction(text="empty", start_logit=0.0, end_logit=0.0))
