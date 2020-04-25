@@ -73,24 +73,28 @@ def _get_best_indexes(logits, n_best_size):
   
   best_indexes = []
   for i in range(len(index_and_score)):
-    print(i, index_and_score[i][0])
+    #print(i, index_and_score[i][0])
     if i >= n_best_size:
       break
     best_indexes.append(index_and_score[i][0])
   return best_indexes
+
 def _compute_softmax(scores):
   """Compute softmax probability over raw logits."""
+  print("scores:",scores)
   if not scores:
+    print("out")
     return []
 
   max_score = None
-  for score in scores:
+  for score in scores[0]:
+    print("score:",score)
     if max_score is None or score > max_score:
       max_score = score
 
   exp_scores = []
   total_sum = 0.0
-  for score in scores:
+  for score in scores[0]:
     x = math.exp(score - max_score)
     exp_scores.append(x)
     total_sum += x
@@ -105,7 +109,7 @@ def get_final_text(pred_text, orig_text, do_lower_case=True):
   """Project the tokenized prediction back to the original text."""
   def _strip_spaces(text):
     ns_chars = []
-    ns_to_s_map = collections.OrderedDict()
+    ns_to_s_map = {}
     for (i, c) in enumerate(text):
       if c == " ":
         continue
@@ -114,8 +118,8 @@ def get_final_text(pred_text, orig_text, do_lower_case=True):
     ns_text = "".join(ns_chars)
     return (ns_text, ns_to_s_map)
 
-  # We first tokenize `orig_text`, strip whitespace from the result
-  # and `pred_text`, and check if they are the same length. If they are
+  # We first tokenize orig_text, strip whitespace from the result
+  # and pred_text, and check if they are the same length. If they are
   # NOT the same length, the heuristic has failed. If they are the same
   # length, we assume the characters are one-to-one aligned.
 
@@ -132,7 +136,7 @@ def get_final_text(pred_text, orig_text, do_lower_case=True):
   if len(orig_ns_text) != len(tok_ns_text):
     return orig_text
 
-  # We then project the characters in `pred_text` back to `orig_text` using
+  # We then project the characters in pred_text back to orig_text using
   # the character-to-character alignment.
   tok_s_to_ns_map = {}
   for (i, tok_index) in tok_ns_to_s_map.items():
@@ -200,7 +204,7 @@ with torch.no_grad():
             if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset):
                 new_doc=[d[i] for d in doc_tokens]
                 new_char=[c[i] for c in char_to_word_offset]
-                print("new:", new_doc, new_char)
+                #print("new:", new_doc, new_char)
                 prelim_predictions.append((ids[i],start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
                 
         
@@ -218,14 +222,14 @@ with torch.no_grad():
         seen_predictions = {}
         nbest = []
         for pred in prelim_predictions:
-          id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
-          print("pred:",pred)
+          qa_id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
+          #print("pred:",pred)
           if len(nbest) >= n_best_size:
             break
           if start_index > 0:  # this is a non-null prediction
-            print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
+            #print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
             tok_tokens = doc_tokens[start_index:(end_index + 1)]
-            print(tok_tokens)
+            #print(tok_tokens)
             orig_doc_start = char_to_word_offset[start_index]
             orig_doc_end = char_to_word_offset[end_index]
             orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
@@ -236,8 +240,8 @@ with torch.no_grad():
             tok_text = tok_text.replace("##", "")
             # Clean whitespace
             tok_text = tok_text.strip()
-            tok_text = " ".join(tok_text.split())
-            orig_text = " ".join(orig_tokens)
+            tok_text = "".join(tok_text.split())
+            orig_text = "".join(orig_tokens)
             final_text = get_final_text(tok_text, orig_text)
             if final_text in seen_predictions:
               continue
@@ -246,28 +250,34 @@ with torch.no_grad():
             final_text = ""
             seen_predictions[final_text] = True
 
-          nbest.append((id,final_text,start_logit,end_logit))
-                    
-        if not nbest:
-          nbest.append((id,"empty",0.0,0.0))
+          nbest.append((qa_id,final_text,start_logit,end_logit))
+
 
         total_scores = []
         best_non_null_entry = None
         for entry in nbest:
-          id,text,start_logit,end_logit = entry
+          qa_id,text,start_logit,end_logit = entry
           total_scores.append(start_logit + end_logit)
           if not best_non_null_entry:
             if text:
               best_non_null_entry = entry
-
+#         print(total_scores,(total_scores[0]).size())
         probs = _compute_softmax(total_scores)
+        print("probs:",probs)
 
         nbest_json = []
         for (i, entry) in enumerate(nbest):
-          id,text,start_logit,end_logit = entry
+          qa_id,text,start_logit,end_logit = entry
           output = {}
-          output["id"] = id
-          output["text"] = text
+          output["id"] = qa_id
+
+          if probs[i]>0.3:
+            output["text"] = text
+          else:
+            output["text"] = ""
+            
+          print("id:",qa_id,"text:",text)
+        
           output["probability"] = probs[i]
           output["start_logit"] = start_logit
           output["end_logit"] = end_logit
@@ -277,7 +287,8 @@ with torch.no_grad():
     all_nbest_json[nbest_json["id"]] = nbest_json
     Path(args.output_path).write_text(json.dumps(all_predictions))
     Path('nbest_predict.json').write_text(json.dumps(all_nbest_json))
-    
+
+
 #   with tf.io.gfile.GFile(output_prediction_file, "w") as writer:
 #     writer.write(json.dumps(all_predictions, indent=4) + "\n")
 

@@ -78,19 +78,23 @@ def _get_best_indexes(logits, n_best_size):
       break
     best_indexes.append(index_and_score[i][0])
   return best_indexes
+
 def _compute_softmax(scores):
   """Compute softmax probability over raw logits."""
+  print("scores:",scores)
   if not scores:
+    print("out")
     return []
 
   max_score = None
-  for score in scores:
+  for score in scores[0]:
+    print("score:",score)
     if max_score is None or score > max_score:
       max_score = score
 
   exp_scores = []
   total_sum = 0.0
-  for score in scores:
+  for score in scores[0]:
     x = math.exp(score - max_score)
     exp_scores.append(x)
     total_sum += x
@@ -105,7 +109,7 @@ def get_final_text(pred_text, orig_text, do_lower_case=True):
   """Project the tokenized prediction back to the original text."""
   def _strip_spaces(text):
     ns_chars = []
-    ns_to_s_map = collections.OrderedDict()
+    ns_to_s_map = {}
     for (i, c) in enumerate(text):
       if c == " ":
         continue
@@ -218,7 +222,7 @@ with torch.no_grad():
         seen_predictions = {}
         nbest = []
         for pred in prelim_predictions:
-          id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
+          qa_id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
           #print("pred:",pred)
           if len(nbest) >= n_best_size:
             break
@@ -236,8 +240,8 @@ with torch.no_grad():
             tok_text = tok_text.replace("##", "")
             # Clean whitespace
             tok_text = tok_text.strip()
-            tok_text = " ".join(tok_text.split())
-            orig_text = " ".join(orig_tokens)
+            tok_text = "".join(tok_text.split())
+            orig_text = "".join(orig_tokens)
             final_text = get_final_text(tok_text, orig_text)
             if final_text in seen_predictions:
               continue
@@ -246,28 +250,34 @@ with torch.no_grad():
             final_text = ""
             seen_predictions[final_text] = True
 
-          nbest.append((id,final_text,start_logit,end_logit))
-                    
-        if not nbest:
-          nbest.append((id,"empty",0.0,0.0))
+          nbest.append((qa_id,final_text,start_logit,end_logit))
+
 
         total_scores = []
         best_non_null_entry = None
         for entry in nbest:
-          id,text,start_logit,end_logit = entry
+          qa_id,text,start_logit,end_logit = entry
           total_scores.append(start_logit + end_logit)
           if not best_non_null_entry:
             if text:
               best_non_null_entry = entry
-
+#         print(total_scores,(total_scores[0]).size())
         probs = _compute_softmax(total_scores)
+        print("probs:",probs)
 
         nbest_json = []
         for (i, entry) in enumerate(nbest):
-          id,text,start_logit,end_logit = entry
+          qa_id,text,start_logit,end_logit = entry
           output = {}
-          output["id"] = id
-          output["text"] = text
+          output["id"] = qa_id
+
+          if probs[i]>0.3:
+            output["text"] = text
+          else:
+            output["text"] = ""
+            
+          print("id:",qa_id,"text:",text)
+        
           output["probability"] = probs[i]
           output["start_logit"] = start_logit
           output["end_logit"] = end_logit
