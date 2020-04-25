@@ -268,7 +268,7 @@ with torch.no_grad():
               best_non_null_entry = entry
 #         print(total_scores,(total_scores[0]).size())
         probs = _compute_softmax(total_scores)
-#         print("probs:",probs)
+        print("probs:",probs)
 
         for (i, entry) in enumerate(nbest):
           qa_id,text,start_logit,end_logit = entry
