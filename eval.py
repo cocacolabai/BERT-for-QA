@@ -5,6 +5,7 @@ from transformers import *
 from tqdm.auto import trange, tqdm
 import time
 import tensorflow as tf
+import math
 from argparse import ArgumentParser
 
 
@@ -263,8 +264,9 @@ with torch.no_grad():
 
     nbest_json = []
     for (i, entry) in enumerate(nbest):
-      output = collections.OrderedDict()
-      output["text"] = entry.text
+      text,start_logit,end_logit = entry
+      output = {}
+      output["text"] = text
       output["probability"] = probs[i]
       output["start_logit"] = start_logit
       output["end_logit"] = end_logit
