@@ -234,6 +234,7 @@ with torch.no_grad():
             orig_doc_end = char_to_word_offset[end_index]
             orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
             tok_text = "".join(tok_tokens)
+            print("tok_text:",tok_text)
 
             # De-tokenize WordPieces that have been split off.
             tok_text = tok_text.replace(" ##", "")
