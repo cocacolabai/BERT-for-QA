@@ -7,8 +7,8 @@ import time
 import tensorflow as tf
 
 output_dir="../bert_model/"
-train_file="./data/train-small.json" 
-dev_file="./data/dev-small.json" 
+train_file="./data/train.json" 
+dev_file="./data/dev.json" 
 
 max_epoch = 3
 batch_size = 4
@@ -31,7 +31,7 @@ class QADataset(Dataset):
   def __init__(self, path: str, tokenizer: BertTokenizer) -> None:
     self.tokenizer = tokenizer
     self.data = []
-    with open(args.test_data_path) as f:
+    with open(path) as f:
       for article in json.load(f)['data']:
         for para in article['paragraphs']:
           context = para["context"]
@@ -52,7 +52,7 @@ class QADataset(Dataset):
                 answer_length = len(orig_answer_text)
                 start_position = char_to_word_offset[answer_offset]
                 end_position = char_to_word_offset[answer_offset + answer_length -1]
-                actual_text = " ".join(doc_tokens[start_position:(end_position + 1)])
+                actual_text = "".join(doc_tokens[start_position:(end_position + 1)])
                 tf.compat.v1.logging.warning("Find answer: '%s' vs. '%s'",actual_text, orig_answer_text)
             else:
                 start_position = -1
@@ -74,8 +74,8 @@ def epoch_time(start_time, end_time):
     elapsed_secs = int(elapsed_time - (elapsed_mins * 60))
     return elapsed_mins, elapsed_secs
     
-train_dataset = QADataset("./data/train-small.json", tokenizer)
-valid_dataset = QADataset("./data/dev-small.json", tokenizer)
+train_dataset = QADataset(train_file, tokenizer)
+valid_dataset = QADataset(dev_file, tokenizer)
 train_loader = DataLoader(train_dataset, shuffle=True, batch_size=batch_size)
 valid_loader = DataLoader(valid_dataset, batch_size=batch_size)
 
@@ -95,7 +95,7 @@ for epoch in trange(max_epoch):
   pbar= tqdm(train_loader)
   for batch in pbar:
     ids, contexts, questions, doc_tokens, orig_answer_text, start_position, end_position, answerable = batch
-    print(ids)
+    #print(ids)
     input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                              max_length=tokenizer.max_len, 
                                              pad_to_max_length=True,
