@@ -200,7 +200,7 @@ with torch.no_grad():
 #         print("------------")
 #         print(start_index,end_index)
             
-        for i in range(batch_size):
+        for i in range(len(ids)):
             if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset):
                 new_doc=[d[i] for d in doc_tokens]
                 new_char=[c[i] for c in char_to_word_offset]
@@ -267,27 +267,15 @@ with torch.no_grad():
         probs = _compute_softmax(total_scores)
 #         print("probs:",probs)
 
-        nbest_json = []
+        output = {}
         for (i, entry) in enumerate(nbest):
           qa_id,text,start_logit,end_logit = entry
-          output = {}
-          output["id"] = qa_id
-
+          
           if probs[i]>0.3:
-            output["text"] = text
+            output[qa_id] = text
           else:
-            output["text"] = ""
-            
-          print("id:",qa_id,"text:",text)
-        
-          output["probability"] = probs[i]
-          output["start_logit"] = start_logit
-          output["end_logit"] = end_logit
-          nbest_json.append(output)
-        
-    all_predictions[nbest_json[0]["id"]] = nbest_json[0]["text"]
-    all_nbest_json[nbest_json[0]["id"]] = nbest_json
-    Path(args.output_path).write_text(json.dumps(all_predictions))
-    Path('nbest_predict.json').write_text(json.dumps(all_nbest_json))
+            output[qa_id] = ""
+        print(output)
+    Path(args.output_path).write_text(json.dumps(output))
 
 
