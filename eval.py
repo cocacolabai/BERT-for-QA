@@ -6,6 +6,7 @@ from tqdm.auto import trange, tqdm
 import time
 import tensorflow as tf
 import math
+from pathlib import Path
 from argparse import ArgumentParser
 
 
@@ -15,7 +16,7 @@ parser.add_argument('--output_path')
 args = parser.parse_args()
 
 
-output_dir='bert-base-chinese'#"../bert_model/"
+output_dir="../bert_model/"
 
 batch_size = 4
 
@@ -178,6 +179,7 @@ all_nbest_json = {}
 
 model.eval()
 with torch.no_grad():
+    output = {}
     pbar=tqdm(test_loader)
     for batch in pbar:
         ids, contexts, questions, doc_tokens, char_to_word_offset = batch
@@ -221,6 +223,7 @@ with torch.no_grad():
 #                     if not (start_index >= tokenizer.max_len) and not (end_index >= tokenizer.max_len) and not (end_index < start_index) and (start_index > 0):
 #                         prelim_predictions.append((start_index, end_index, logits[0][i], logits[1][i]))
         seen_predictions = {}
+        
         nbest = []
         for pred in prelim_predictions:
           qa_id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
@@ -267,7 +270,6 @@ with torch.no_grad():
         probs = _compute_softmax(total_scores)
 #         print("probs:",probs)
 
-        output = {}
         for (i, entry) in enumerate(nbest):
           qa_id,text,start_logit,end_logit = entry
           
