@@ -81,14 +81,14 @@ def _get_best_indexes(logits, n_best_size):
 
 def _compute_softmax(scores):
   """Compute softmax probability over raw logits."""
-  print("scores:",scores)
+#   print("scores:",scores)
   if not scores:
-    print("out")
+#     print("out")
     return []
 
   max_score = None
   for score in scores[0]:
-    print("score:",score)
+#     print("score:",score)
     if max_score is None or score > max_score:
       max_score = score
 
@@ -265,7 +265,7 @@ with torch.no_grad():
               best_non_null_entry = entry
 #         print(total_scores,(total_scores[0]).size())
         probs = _compute_softmax(total_scores)
-        print("probs:",probs)
+#         print("probs:",probs)
 
         nbest_json = []
         for (i, entry) in enumerate(nbest):
@@ -285,8 +285,8 @@ with torch.no_grad():
           output["end_logit"] = end_logit
           nbest_json.append(output)
         
-    all_predictions[nbest_json["id"]] = nbest_json[0]["text"]
-    all_nbest_json[nbest_json["id"]] = nbest_json
+    all_predictions[nbest_json[0]["id"]] = nbest_json[0]["text"]
+    all_nbest_json[nbest_json[0]["id"]] = nbest_json
     Path(args.output_path).write_text(json.dumps(all_predictions))
     Path('nbest_predict.json').write_text(json.dumps(all_nbest_json))
 
