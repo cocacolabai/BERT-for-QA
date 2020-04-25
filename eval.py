@@ -15,7 +15,7 @@ parser.add_argument('--output_path')
 args = parser.parse_args()
 
 
-output_dir="../bert_model/"
+output_dir='bert-base-chinese'#"../bert_model/"
 
 batch_size = 4
 
@@ -195,13 +195,13 @@ with torch.no_grad():
 
 #         print("------------")
 #         print(start_index,end_index)
-        print(len(ids))
-        for i in range(len(ids)):
+            
+        for i in range(batch_size):
             if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset):
                 new_doc=[d[i] for d in doc_tokens]
                 new_char=[c[i] for c in char_to_word_offset]
-                #print("new:", new_doc, new_char)
-                prelim_predictions.append((start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
+                print("new:", new_doc, new_char)
+                prelim_predictions.append((ids[i],start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
                 
         
 #         for i in range(batch_size):
@@ -218,14 +218,14 @@ with torch.no_grad():
         seen_predictions = {}
         nbest = []
         for pred in prelim_predictions:
-          start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
-          #print("pred:",pred)
+          id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
+          print("pred:",pred)
           if len(nbest) >= n_best_size:
             break
           if start_index > 0:  # this is a non-null prediction
-            #print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
+            print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
             tok_tokens = doc_tokens[start_index:(end_index + 1)]
-            #print(tok_tokens)
+            print(tok_tokens)
             orig_doc_start = char_to_word_offset[start_index]
             orig_doc_end = char_to_word_offset[end_index]
             orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
@@ -246,34 +246,35 @@ with torch.no_grad():
             final_text = ""
             seen_predictions[final_text] = True
 
-          nbest.append((final_text,start_logit,end_logit))
+          nbest.append((id,final_text,start_logit,end_logit))
                     
         if not nbest:
-          nbest.append(("empty",0.0,0.0))
+          nbest.append((id,"empty",0.0,0.0))
 
-    total_scores = []
-    best_non_null_entry = None
-    for entry in nbest:
-      text,start_logit,end_logit = entry
-      total_scores.append(start_logit + end_logit)
-      if not best_non_null_entry:
-        if text:
-          best_non_null_entry = entry
+        total_scores = []
+        best_non_null_entry = None
+        for entry in nbest:
+          id,text,start_logit,end_logit = entry
+          total_scores.append(start_logit + end_logit)
+          if not best_non_null_entry:
+            if text:
+              best_non_null_entry = entry
 
-    probs = _compute_softmax(total_scores)
+        probs = _compute_softmax(total_scores)
 
-    nbest_json = []
-    for (i, entry) in enumerate(nbest):
-      text,start_logit,end_logit = entry
-      output = {}
-      output["text"] = text
-      output["probability"] = probs[i]
-      output["start_logit"] = start_logit
-      output["end_logit"] = end_logit
-      nbest_json.append(output)
+        nbest_json = []
+        for (i, entry) in enumerate(nbest):
+          id,text,start_logit,end_logit = entry
+          output = {}
+          output["id"] = id
+          output["text"] = text
+          output["probability"] = probs[i]
+          output["start_logit"] = start_logit
+          output["end_logit"] = end_logit
+          nbest_json.append(output)
         
-    all_predictions[example.qas_id] = nbest_json[0]["text"]
-    all_nbest_json[example.qas_id] = nbest_json
+    all_predictions[nbest_json["id"]] = nbest_json[0]["text"]
+    all_nbest_json[nbest_json["id"]] = nbest_json
     Path(args.output_path).write_text(json.dumps(all_predictions))
     Path('nbest_predict.json').write_text(json.dumps(all_nbest_json))
     

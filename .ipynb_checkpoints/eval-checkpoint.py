@@ -5,6 +5,7 @@ from transformers import *
 from tqdm.auto import trange, tqdm
 import time
 import tensorflow as tf
+import math
 from argparse import ArgumentParser
 
 
@@ -200,7 +201,7 @@ with torch.no_grad():
                 new_doc=[d[i] for d in doc_tokens]
                 new_char=[c[i] for c in char_to_word_offset]
                 print("new:", new_doc, new_char)
-                prelim_predictions.append((start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
+                prelim_predictions.append((ids[i],start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
                 
         
 #         for i in range(batch_size):
@@ -217,7 +218,7 @@ with torch.no_grad():
         seen_predictions = {}
         nbest = []
         for pred in prelim_predictions:
-          start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
+          id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
           print("pred:",pred)
           if len(nbest) >= n_best_size:
             break
@@ -245,33 +246,35 @@ with torch.no_grad():
             final_text = ""
             seen_predictions[final_text] = True
 
-          nbest.append((final_text,start_logit,end_logit))
+          nbest.append((id,final_text,start_logit,end_logit))
                     
         if not nbest:
-          nbest.append(("empty",0.0,0.0))
+          nbest.append((id,"empty",0.0,0.0))
 
-    total_scores = []
-    best_non_null_entry = None
-    for entry in nbest:
-      text,start_logit,end_logit = entry
-      total_scores.append(start_logit + end_logit)
-      if not best_non_null_entry:
-        if text:
-          best_non_null_entry = entry
+        total_scores = []
+        best_non_null_entry = None
+        for entry in nbest:
+          id,text,start_logit,end_logit = entry
+          total_scores.append(start_logit + end_logit)
+          if not best_non_null_entry:
+            if text:
+              best_non_null_entry = entry
 
-    probs = _compute_softmax(total_scores)
+        probs = _compute_softmax(total_scores)
 
-    nbest_json = []
-    for (i, entry) in enumerate(nbest):
-      output = collections.OrderedDict()
-      output["text"] = entry.text
-      output["probability"] = probs[i]
-      output["start_logit"] = start_logit
-      output["end_logit"] = end_logit
-      nbest_json.append(output)
+        nbest_json = []
+        for (i, entry) in enumerate(nbest):
+          id,text,start_logit,end_logit = entry
+          output = {}
+          output["id"] = id
+          output["text"] = text
+          output["probability"] = probs[i]
+          output["start_logit"] = start_logit
+          output["end_logit"] = end_logit
+          nbest_json.append(output)
         
-    all_predictions[example.qas_id] = nbest_json[0]["text"]
-    all_nbest_json[example.qas_id] = nbest_json
+    all_predictions[nbest_json["id"]] = nbest_json[0]["text"]
+    all_nbest_json[nbest_json["id"]] = nbest_json
     Path(args.output_path).write_text(json.dumps(all_predictions))
     Path('nbest_predict.json').write_text(json.dumps(all_nbest_json))
     
