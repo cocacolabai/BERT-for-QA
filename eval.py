@@ -14,7 +14,7 @@ parser.add_argument('--output_path')
 args = parser.parse_args()
 
 
-output_dir='bert-base-chinese'#"../bert_model/"
+output_dir="../bert_model/"
 
 batch_size = 4
 
@@ -194,12 +194,12 @@ with torch.no_grad():
 
 #         print("------------")
 #         print(start_index,end_index)
-            
-        for i in range(batch_size):
+        print(len(ids))
+        for i in range(len(ids)):
             if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset):
                 new_doc=[d[i] for d in doc_tokens]
                 new_char=[c[i] for c in char_to_word_offset]
-                print("new:", new_doc, new_char)
+                #print("new:", new_doc, new_char)
                 prelim_predictions.append((start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
                 
         
@@ -218,13 +218,13 @@ with torch.no_grad():
         nbest = []
         for pred in prelim_predictions:
           start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
-          print("pred:",pred)
+          #print("pred:",pred)
           if len(nbest) >= n_best_size:
             break
           if start_index > 0:  # this is a non-null prediction
-            print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
+            #print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
             tok_tokens = doc_tokens[start_index:(end_index + 1)]
-            print(tok_tokens)
+            #print(tok_tokens)
             orig_doc_start = char_to_word_offset[start_index]
             orig_doc_end = char_to_word_offset[end_index]
             orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
