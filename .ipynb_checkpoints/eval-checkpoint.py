@@ -16,7 +16,7 @@ parser.add_argument('--output_path')
 args = parser.parse_args()
 
 
-output_dir="../bert_model/"
+output_dir="bert-base-chinese"#"../bert_model/"
 
 batch_size = 4
 
@@ -82,14 +82,11 @@ def _get_best_indexes(logits, n_best_size):
 
 def _compute_softmax(scores):
   """Compute softmax probability over raw logits."""
-#   print("scores:",scores)
   if not scores:
-#     print("out")
     return []
 
   max_score = None
   for score in scores[0]:
-#     print("score:",score)
     if max_score is None or score > max_score:
       max_score = score
 
@@ -191,6 +188,7 @@ with torch.no_grad():
         input_dict = {k: v.to(device) for k, v in input_dict.items()}
         logits = model(**input_dict)
         
+        print(logits)
         ###################
         score_null = 1000000  # large and positive ###
         prelim_predictions = []
@@ -238,7 +236,7 @@ with torch.no_grad():
             orig_doc_end = char_to_word_offset[end_index]
             orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
             tok_text = "".join(tok_tokens)
-            print("tok_text:",tok_text)
+            
 
             # De-tokenize WordPieces that have been split off.
             tok_text = tok_text.replace(" ##", "")
@@ -246,7 +244,9 @@ with torch.no_grad():
             # Clean whitespace
             tok_text = tok_text.strip()
             tok_text = "".join(tok_text.split())
+            print("tok_text:",tok_text)
             orig_text = "".join(orig_tokens)
+            print("orig_text:",orig_text)
             final_text = get_final_text(tok_text, orig_text)
             if final_text in seen_predictions:
               continue
@@ -273,11 +273,10 @@ with torch.no_grad():
         for (i, entry) in enumerate(nbest):
           qa_id,text,start_logit,end_logit = entry
           
-          if probs[i]>0.3:
+          if probs[i]>0.1:
             output[qa_id] = text
           else:
             output[qa_id] = ""
-        print(output)
     Path(args.output_path).write_text(json.dumps(output))
 
 
