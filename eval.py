@@ -181,10 +181,13 @@ with torch.no_grad():
     for batch in pbar:
         ids, contexts, questions, doc_tokens, char_to_word_offset = batch
 #         print("size:",len(char_to_word_offset),len(doc_tokens)) ####
+        print("contexts:",contexts)
+        print("questions:",questions)
         input_dict = tokenizer.batch_encode_plus(contexts, questions, 
                                                  max_length=tokenizer.max_len, 
                                                  pad_to_max_length=True,
                                                  return_tensors='pt')
+        print("input_dict:",input_dict)
         input_dict = {k: v.to(device) for k, v in input_dict.items()}
         logits = model(**input_dict)
         
@@ -192,34 +195,18 @@ with torch.no_grad():
         ###################
         score_null = 1000000  # large and positive ###
         prelim_predictions = []
-        
-#         print(logits[0].argmax(-1))
+
         start_index = logits[0].argmax(-1)
         end_index = logits[1].argmax(-1)
-
-#         print("------------")
-#         print(start_index,end_index)
             
         for i in range(len(ids)):
             if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset):
                 new_doc=[d[i] for d in doc_tokens]
                 new_char=[c[i] for c in char_to_word_offset]
-                #print("new:", new_doc, new_char)
+
                 prelim_predictions.append((ids[i],start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
                 
-        
-#         for i in range(batch_size):
-            
-#             start_indexes = logits[0][i].argsort()[-n_best_size:][::-1]
-#             end_indexes = logits[1][i].argsort()[-n_best_size:][::-1]
-#       
-#      print(start_indexes)
-#             print(end_indexes)
-            
-#             for start_index in start_indexes:
-#                 for end_index in end_indexes:
-#                     if not (start_index >= tokenizer.max_len) and not (end_index >= tokenizer.max_len) and not (end_index < start_index) and (start_index > 0):
-#                         prelim_predictions.append((start_index, end_index, logits[0][i], logits[1][i]))
+
         seen_predictions = {}
         
         nbest = []
