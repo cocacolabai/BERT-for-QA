@@ -43,17 +43,16 @@ class QATestDataset(Dataset):
       for article in json.load(f)['data']:
         for para in article['paragraphs']:
           context = para["context"]
-          doc_tokens = []
-          char_to_word_offset = []
-          for c in context:
-                doc_tokens.append(c)  # 每个token
-                char_to_word_offset.append(len(doc_tokens) - 1)  # 每个字的index
-    
-#           print(char_to_word_offset, len(char_to_word_offset))
+          
           for qa in para['qas']:
             qa_id = qa['id']
             question = qa['question']
-            self.data.append((qa_id, context, question, doc_tokens, char_to_word_offset))
+            
+            #truncate
+            cLen = 509 - len(question)
+            if len(contexts[i])>cLen:      
+                context=context[:cLen]
+            self.data.append((qa_id, context, question))
   
   def __len__(self) -> int:
     return len(self.data)
@@ -179,104 +178,31 @@ with torch.no_grad():
     output = {}
     pbar=tqdm(test_loader)
     for batch in pbar:
-        ids, contexts, questions, doc_tokens, char_to_word_offset = batch
-#         print("size:",len(char_to_word_offset),len(doc_tokens)) ####
-        input_dict = tokenizer.batch_encode_plus(contexts, questions, 
+        ids, contexts, questions = batch
+        #print(ids)
+        input_dict = tokenizer.batch_encode_plus([contexts, questions], 
                                                  max_length=tokenizer.max_len, 
                                                  pad_to_max_length=True,
                                                  return_tensors='pt')
         input_dict = {k: v.to(device) for k, v in input_dict.items()}
+
         logits = model(**input_dict)
         
         print(logits)
-        ###################
-        score_null = 1000000  # large and positive ###
-        prelim_predictions = []
-        
-#         print(logits[0].argmax(-1))
+
         start_index = logits[0].argmax(-1)
         end_index = logits[1].argmax(-1)
-
-#         print("------------")
-#         print(start_index,end_index)
             
         for i in range(len(ids)):
-            if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset):
-                new_doc=[d[i] for d in doc_tokens]
-                new_char=[c[i] for c in char_to_word_offset]
-                #print("new:", new_doc, new_char)
-                prelim_predictions.append((ids[i],start_index[i], end_index[i], logits[0][i], logits[1][i], new_doc, new_char))
-                
-        
-#         for i in range(batch_size):
-            
-#             start_indexes = logits[0][i].argsort()[-n_best_size:][::-1]
-#             end_indexes = logits[1][i].argsort()[-n_best_size:][::-1]
-#       
-#      print(start_indexes)
-#             print(end_indexes)
-            
-#             for start_index in start_indexes:
-#                 for end_index in end_indexes:
-#                     if not (start_index >= tokenizer.max_len) and not (end_index >= tokenizer.max_len) and not (end_index < start_index) and (start_index > 0):
-#                         prelim_predictions.append((start_index, end_index, logits[0][i], logits[1][i]))
-        seen_predictions = {}
-        
-        nbest = []
-        for pred in prelim_predictions:
-          qa_id, start_index, end_index, start_logit, end_logit, doc_tokens, char_to_word_offset= pred
-          #print("pred:",pred)
-          if len(nbest) >= n_best_size:
-            break
-          if start_index > 0:  # this is a non-null prediction
-            #print(len(char_to_word_offset),len(start_logit),tokenizer.max_len)
-            tok_tokens = doc_tokens[start_index:(end_index + 1)]
-            #print(tok_tokens)
-            orig_doc_start = char_to_word_offset[start_index]
-            orig_doc_end = char_to_word_offset[end_index]
-            orig_tokens = doc_tokens[orig_doc_start:(orig_doc_end + 1)]
-            tok_text = "".join(tok_tokens)
-            
-
-            # De-tokenize WordPieces that have been split off.
-            tok_text = tok_text.replace(" ##", "")
-            tok_text = tok_text.replace("##", "")
-            # Clean whitespace
-            tok_text = tok_text.strip()
-            tok_text = "".join(tok_text.split())
-            print("tok_text:",tok_text)
-            orig_text = "".join(orig_tokens)
-            print("orig_text:",orig_text)
-            final_text = get_final_text(tok_text, orig_text)
-            if final_text in seen_predictions:
-              continue
-            seen_predictions[final_text] = True
-          else:
-            final_text = ""
-            seen_predictions[final_text] = True
-
-          nbest.append((qa_id,final_text,start_logit,end_logit))
-
-
-        total_scores = []
-        best_non_null_entry = None
-        for entry in nbest:
-          qa_id,text,start_logit,end_logit = entry
-          total_scores.append(start_logit + end_logit)
-          if not best_non_null_entry:
-            if text:
-              best_non_null_entry = entry
-#         print(total_scores,(total_scores[0]).size())
-        probs = _compute_softmax(total_scores)
-        print("probs:",probs)
-
-        for (i, entry) in enumerate(nbest):
-          qa_id,text,start_logit,end_logit = entry
-          
-          if probs[i]>0.1:
-            output[qa_id] = text
-          else:
-            output[qa_id] = ""
+            if (start_index[i] < tokenizer.max_len) and (end_index[i] < tokenizer.max_len) and (end_index[i] > start_index[i]) and (start_index[i] > 0) and end_index[i] < len(char_to_word_offset and if end_index - start_index + 1 < max_answer_length):
+                answer = "".join(tokenizer.convert_ids_to_tokens(input_dict['input_ids'][i][start_index:end_index]))
+                # De-tokenize WordPieces that have been split off.
+                answer = answer.replace(" ##", "")
+                answer = answer.replace("##", "")
+            else:
+                answer = ""
+            output[ids[i]] = answer 
+       
     Path(args.output_path).write_text(json.dumps(output))
 
 
